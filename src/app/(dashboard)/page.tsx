@@ -9,6 +9,8 @@ import { OnboardingBanner } from "@/components/shared/OnboardingBanner"
 import { Plane, MapPin, TrendingUp, Calendar, Plus } from "lucide-react"
 import { format } from "date-fns"
 
+export const dynamic = 'force-dynamic'
+
 interface DashboardStats {
   totalJumps: number
   nextJumpNumber: number

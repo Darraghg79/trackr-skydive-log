@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/useToast"
 import { Upload, FileText, AlertCircle, CheckCircle } from "lucide-react"
 
+export const dynamic = 'force-dynamic'
+
 export default function ImportJumpsPage() {
   const [file, setFile] = useState<File | null>(null)
   const [importing, setImporting] = useState(false)

@@ -6,6 +6,8 @@ import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { Plane, TrendingUp, Calendar, MapPin, Award, Clock } from "lucide-react"
 import { format } from "date-fns"
 
+export const dynamic = 'force-dynamic'
+
 interface ReportsData {
   totalJumps: number
   totalFreefallTime: number

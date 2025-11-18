@@ -145,17 +145,11 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="jumpNumber">Jump Number *</Label>
-          <Input
-            id="jumpNumber"
-            type="number"
-            min="1"
-            value={formData.jumpNumber}
-            onChange={(e) =>
-              setFormData({ ...formData, jumpNumber: e.target.value })
-            }
-            required
-          />
+          <Label>Jump Number</Label>
+          <div className="flex items-center h-10 px-3 py-2 border border-muted bg-muted/50 rounded-md">
+            <span className="text-2xl font-bold text-primary">#{formData.jumpNumber}</span>
+            <span className="ml-2 text-xs text-muted-foreground">(auto)</span>
+          </div>
         </div>
 
         <div className="space-y-2">

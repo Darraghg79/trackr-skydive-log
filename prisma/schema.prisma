@@ -1,0 +1,353 @@
+// Prisma Schema for TrackR Skydive Log
+// Generated from product-spec.md
+// Database: PostgreSQL (Supabase)
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UnitPreference {
+  METRIC
+  IMPERIAL
+}
+
+enum GearComponentType {
+  MAIN
+  RESERVE
+  AAD
+  CONTAINER
+  OTHER
+}
+
+enum WorkJumpType {
+  AFF
+  TANDEM
+  CAMERA
+  COACH
+}
+
+enum InvoiceStatus {
+  OPEN
+  SENT
+  PAID
+}
+
+enum InvoiceLineItemType {
+  BASE_JUMP
+  HANDCAM_ADDON
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+model User {
+  id                      String         @id @default(uuid())
+  email                   String         @unique
+  name                    String?
+  address                 String?        @db.Text
+  phone                   String?
+  taxRegistrationNumber   String?
+  licenseNumber           String?
+  unitPreference          UnitPreference @default(IMPERIAL)
+  currentJumpNumber       Int            @default(1)
+  startingFreefallTime    Int            @default(0)
+  startingCutaways        Int            @default(0)
+  invoiceStartingNumber   Int            @default(1)
+  brandingLogo            String?
+  brandingCompanyName     String?
+  brandingPrimaryColor    String?
+  brandingInvoiceFooter   String?        @db.Text
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  // Relations
+  gearComponents      GearComponent[]
+  rigs                Rig[]
+  dropzones           Dropzone[]
+  jumps               Jump[]
+  invoices            Invoice[]
+  userJumpTypes       UserJumpType[]
+  userAircrafts       UserAircraft[]
+  jumpNumberAuditLogs JumpNumberAuditLog[]
+
+  @@map("users")
+}
+
+model GearComponent {
+  id                String            @id @default(uuid())
+  userId            String
+  type              GearComponentType
+  name              String
+  manufacturer      String
+  model             String?
+  serialNumber      String?
+  previousJumpCount Int               @default(0)
+  serviceDate       DateTime?         @db.Date
+  isActive          Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  // Relations
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rigComponents RigComponent[]
+  jumpGearComponents JumpGearComponent[]
+
+  @@index([userId])
+  @@index([type])
+  @@index([serviceDate])
+  @@map("gear_components")
+}
+
+model Rig {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rigComponents RigComponent[]
+  jumps         Jump[]
+
+  @@index([userId])
+  @@map("rigs")
+}
+
+model RigComponent {
+  id              String   @id @default(uuid())
+  rigId           String
+  gearComponentId String
+  createdAt       DateTime @default(now())
+
+  // Relations
+  rig           Rig           @relation(fields: [rigId], references: [id], onDelete: Cascade)
+  gearComponent GearComponent @relation(fields: [gearComponentId], references: [id], onDelete: Cascade)
+
+  @@unique([rigId, gearComponentId])
+  @@index([rigId])
+  @@index([gearComponentId])
+  @@map("rig_components")
+}
+
+model Dropzone {
+  id           String   @id @default(uuid())
+  userId       String
+  name         String
+  address      String   @db.Text
+  country      String
+  contactName  String?
+  contactEmail String?
+  currency     String
+  rateAFF      Decimal? @db.Decimal(10, 2)
+  rateTandem   Decimal? @db.Decimal(10, 2)
+  rateCamera   Decimal? @db.Decimal(10, 2)
+  rateCoach    Decimal? @db.Decimal(10, 2)
+  rateHandcam  Decimal? @db.Decimal(10, 2)
+  taxRate      Decimal? @db.Decimal(5, 2)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jumps    Jump[]
+  invoices Invoice[]
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("dropzones")
+}
+
+model UserJumpType {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  isDefault Boolean  @default(false)
+  sortOrder Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jumps Jump[]
+
+  @@index([userId])
+  @@index([sortOrder])
+  @@map("user_jump_types")
+}
+
+model UserAircraft {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  isDefault Boolean  @default(false)
+  sortOrder Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jumps Jump[]
+
+  @@index([userId])
+  @@index([sortOrder])
+  @@map("user_aircrafts")
+}
+
+model Jump {
+  id                 String        @id @default(uuid())
+  userId             String
+  jumpNumber         Int
+  date               DateTime      @db.Date
+  dropzoneId         String
+  aircraftId         String?
+  jumpTypeId         String?
+  rigId              String?
+  exitAltitude       Int?
+  deploymentAltitude Int?
+  freefallTime       Int?
+  isCutaway          Boolean       @default(false)
+  notes              String?       @db.Text
+  photoUrl           String?
+  isWorkJump         Boolean       @default(false)
+  workJumpType       WorkJumpType?
+  customerName       String?
+  hasHandcam         Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  // Relations
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dropzone         Dropzone            @relation(fields: [dropzoneId], references: [id], onDelete: Restrict)
+  aircraft         UserAircraft?       @relation(fields: [aircraftId], references: [id], onDelete: SetNull)
+  jumpType         UserJumpType?       @relation(fields: [jumpTypeId], references: [id], onDelete: SetNull)
+  rig              Rig?                @relation(fields: [rigId], references: [id], onDelete: SetNull)
+  signatures       JumpSignature[]
+  gearComponents   JumpGearComponent[]
+  invoiceLineItems InvoiceLineItem[]
+
+  @@index([userId])
+  @@index([dropzoneId])
+  @@index([date])
+  @@index([jumpNumber])
+  @@index([isWorkJump])
+  @@index([aircraftId])
+  @@index([jumpTypeId])
+  @@index([rigId])
+  @@map("jumps")
+}
+
+model JumpGearComponent {
+  id              String   @id @default(uuid())
+  jumpId          String
+  gearComponentId String
+  createdAt       DateTime @default(now())
+
+  // Relations
+  jump          Jump          @relation(fields: [jumpId], references: [id], onDelete: Cascade)
+  gearComponent GearComponent @relation(fields: [gearComponentId], references: [id], onDelete: Cascade)
+
+  @@unique([jumpId, gearComponentId])
+  @@index([jumpId])
+  @@index([gearComponentId])
+  @@map("jump_gear_components")
+}
+
+model JumpSignature {
+  id                  String   @id @default(uuid())
+  jumpId              String
+  signerLicenseNumber String
+  signatureImage      String   @db.Text
+  signedAt            DateTime @default(now())
+  createdAt           DateTime @default(now())
+
+  // Relations
+  jump Jump @relation(fields: [jumpId], references: [id], onDelete: Cascade)
+
+  @@index([jumpId])
+  @@map("jump_signatures")
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  userId        String
+  dropzoneId    String
+  invoiceNumber String
+  invoiceDate   DateTime      @db.Date
+  dueDate       DateTime?     @db.Date
+  subtotal      Decimal       @db.Decimal(10, 2)
+  taxRate       Decimal?      @db.Decimal(5, 2)
+  taxAmount     Decimal?      @db.Decimal(10, 2)
+  total         Decimal       @db.Decimal(10, 2)
+  currency      String
+  status        InvoiceStatus @default(OPEN)
+  notes         String?       @db.Text
+  pdfUrl        String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dropzone  Dropzone          @relation(fields: [dropzoneId], references: [id], onDelete: Restrict)
+  lineItems InvoiceLineItem[]
+
+  @@index([userId])
+  @@index([dropzoneId])
+  @@index([status])
+  @@index([invoiceDate])
+  @@map("invoices")
+}
+
+model InvoiceLineItem {
+  id           String                @id @default(uuid())
+  invoiceId    String
+  jumpId       String
+  itemType     InvoiceLineItemType
+  workJumpType WorkJumpType
+  quantity     Int
+  unitPrice    Decimal               @db.Decimal(10, 2)
+  lineTotal    Decimal               @db.Decimal(10, 2)
+  createdAt    DateTime              @default(now())
+
+  // Relations
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  jump    Jump    @relation(fields: [jumpId], references: [id], onDelete: Restrict)
+
+  @@index([invoiceId])
+  @@index([jumpId])
+  @@index([itemType])
+  @@map("invoice_line_items")
+}
+
+model JumpNumberAuditLog {
+  id             String   @id @default(uuid())
+  userId         String
+  previousNumber Int
+  newNumber      Int
+  reason         String   @db.Text
+  changedAt      DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([changedAt])
+  @@map("jump_number_audit_logs")
+}

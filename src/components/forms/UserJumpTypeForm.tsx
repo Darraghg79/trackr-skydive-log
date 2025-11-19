@@ -14,7 +14,6 @@ interface UserJumpTypeFormProps {
     id: string
     name: string
     isDefault: boolean
-    sortOrder: number
     isActive: boolean
   }
   onSuccess?: () => void
@@ -26,7 +25,6 @@ export function UserJumpTypeForm({ initialData, onSuccess }: UserJumpTypeFormPro
   const [formData, setFormData] = useState({
     name: initialData?.name || "",
     isDefault: initialData?.isDefault ?? false,
-    sortOrder: initialData?.sortOrder ?? 0,
     isActive: initialData?.isActive ?? true,
   })
 
@@ -74,22 +72,6 @@ export function UserJumpTypeForm({ initialData, onSuccess }: UserJumpTypeFormPro
               placeholder="e.g., Formation, Freefly, Wingsuit"
               required
             />
-          </div>
-
-          <div>
-            <Label htmlFor="sortOrder">Sort Order</Label>
-            <Input
-              id="sortOrder"
-              type="number"
-              value={formData.sortOrder}
-              onChange={(e) =>
-                setFormData({ ...formData, sortOrder: parseInt(e.target.value) || 0 })
-              }
-              min="0"
-            />
-            <p className="text-sm text-muted-foreground mt-1">
-              Lower numbers appear first in lists
-            </p>
           </div>
 
           <div className="space-y-2">

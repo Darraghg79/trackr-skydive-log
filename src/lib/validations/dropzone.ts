@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export const DropzoneCreateSchema = z.object({
   name: z.string().min(1).max(100),
+  city: z.string().max(100).optional(),
   address: z.string().min(1).max(500),
   country: z.string().min(1).max(100),
   contactName: z.string().max(100).optional(),

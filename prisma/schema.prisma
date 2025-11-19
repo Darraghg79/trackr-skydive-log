@@ -148,11 +148,11 @@ model Dropzone {
   userId       String
   name         String
   city         String?
-  address      String   @db.Text
-  country      String
+  address      String?  @db.Text
+  country      String?
   contactName  String?
   contactEmail String?
-  currency     String
+  currency     String?
   rateAFF      Decimal? @db.Decimal(10, 2)
   rateTandem   Decimal? @db.Decimal(10, 2)
   rateCamera   Decimal? @db.Decimal(10, 2)

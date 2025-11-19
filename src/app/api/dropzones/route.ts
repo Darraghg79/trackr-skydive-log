@@ -8,8 +8,9 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
+
     if (authError || !user) {
+      console.error('GET /api/dropzones auth error:', authError)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -20,8 +21,12 @@ export async function GET(request: NextRequest) {
     const order = searchParams.get('order') || 'asc'
     const isActive = searchParams.get('isActive')
 
+    console.log('GET /api/dropzones params:', { userId: user.id, limit, offset, orderBy, order, isActive })
+
     const where: any = { userId: user.id }
     if (isActive !== null) where.isActive = isActive === 'true'
+
+    console.log('GET /api/dropzones where clause:', where)
 
     const [items, total] = await Promise.all([
       prisma.dropzone.findMany({
@@ -33,13 +38,17 @@ export async function GET(request: NextRequest) {
       prisma.dropzone.count({ where }),
     ])
 
+    console.log('GET /api/dropzones success:', { itemCount: items.length, total })
+
     return NextResponse.json({
       data: items,
       pagination: { total, limit, offset, hasMore: offset + items.length < total },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('GET /api/dropzones error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('GET /api/dropzones error stack:', error.stack)
+    console.error('GET /api/dropzones error message:', error.message)
+    return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 })
   }
 }
 

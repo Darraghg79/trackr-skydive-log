@@ -88,9 +88,6 @@ export default function JumpTypesPage() {
               <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="text-2xl font-bold text-muted-foreground">
-                      {type.sortOrder}
-                    </div>
                     <div>
                       <h3 className="font-semibold">{type.name}</h3>
                     </div>

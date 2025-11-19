@@ -123,6 +123,7 @@ export default function DropzoneDetailPage() {
           description: data.details || data.error || "An error occurred",
           variant: "destructive"
         })
+        setDeleting(false)
         return
       }
 
@@ -133,6 +134,8 @@ export default function DropzoneDetailPage() {
           : undefined
       })
 
+      setShowDelete(false)
+      setShowReassign(false)
       router.push("/dropzones")
       router.refresh()
     } catch (error) {
@@ -142,10 +145,7 @@ export default function DropzoneDetailPage() {
         description: "An unexpected error occurred",
         variant: "destructive"
       })
-    } finally {
       setDeleting(false)
-      setShowDelete(false)
-      setShowReassign(false)
     }
   }
 

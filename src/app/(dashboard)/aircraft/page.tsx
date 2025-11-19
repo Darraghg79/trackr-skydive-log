@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -14,21 +15,20 @@ interface Aircraft {
   id: string
   name: string
   isDefault: boolean
-  sortOrder: number
   isActive: boolean
 }
 
 export default function AircraftPage() {
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetchAircraft()
-  }, [])
+  const pathname = usePathname()
 
   const fetchAircraft = async () => {
     try {
-      const res = await fetch("/api/user-aircrafts")
+      setLoading(true)
+      const res = await fetch("/api/user-aircrafts", {
+        cache: "no-store"
+      })
       const data = await res.json()
       setAircraft(data.data || [])
     } catch (error) {
@@ -37,6 +37,20 @@ export default function AircraftPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchAircraft()
+  }, [pathname])
+
+  useEffect(() => {
+    // Refetch when window regains focus
+    const handleFocus = () => {
+      fetchAircraft()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [])
 
   if (loading) {
     return <PageLoader />

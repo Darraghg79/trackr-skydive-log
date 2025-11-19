@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -14,21 +15,20 @@ interface JumpType {
   id: string
   name: string
   isDefault: boolean
-  sortOrder: number
   isActive: boolean
 }
 
 export default function JumpTypesPage() {
   const [jumpTypes, setJumpTypes] = useState<JumpType[]>([])
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetchJumpTypes()
-  }, [])
+  const pathname = usePathname()
 
   const fetchJumpTypes = async () => {
     try {
-      const res = await fetch("/api/user-jump-types")
+      setLoading(true)
+      const res = await fetch("/api/user-jump-types", {
+        cache: "no-store"
+      })
       const data = await res.json()
       setJumpTypes(data.data || [])
     } catch (error) {
@@ -37,6 +37,20 @@ export default function JumpTypesPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchJumpTypes()
+  }, [pathname])
+
+  useEffect(() => {
+    // Refetch when window regains focus
+    const handleFocus = () => {
+      fetchJumpTypes()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [])
 
   if (loading) {
     return <PageLoader />

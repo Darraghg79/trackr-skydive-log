@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -25,14 +26,14 @@ interface Dropzone {
 export default function DropzonesPage() {
   const [dropzones, setDropzones] = useState<Dropzone[]>([])
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetchDropzones()
-  }, [])
+  const pathname = usePathname()
 
   const fetchDropzones = async () => {
     try {
-      const res = await fetch("/api/dropzones?orderBy=name&order=asc")
+      setLoading(true)
+      const res = await fetch("/api/dropzones?orderBy=name&order=asc", {
+        cache: "no-store"
+      })
       const data = await res.json()
       setDropzones(data.data || [])
     } catch (error) {
@@ -41,6 +42,20 @@ export default function DropzonesPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchDropzones()
+  }, [pathname])
+
+  useEffect(() => {
+    // Refetch when window regains focus
+    const handleFocus = () => {
+      fetchDropzones()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [])
 
   if (loading) {
     return <PageLoader />

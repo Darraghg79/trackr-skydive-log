@@ -14,11 +14,11 @@ interface Dropzone {
   id: string
   name: string
   city?: string
-  address?: string
-  country?: string
+  address: string
+  country: string
   contactName?: string
   contactEmail?: string
-  currency?: string
+  currency: string
   isActive: boolean
 }
 
@@ -99,18 +99,14 @@ export default function DropzonesPage() {
                     )}
                   </div>
                   <div className="space-y-1 text-sm text-muted-foreground">
-                    {(dz.city || dz.country) && (
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        {[dz.city, dz.country].filter(Boolean).join(', ')}
-                      </div>
-                    )}
-                    {dz.currency && (
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4" />
-                        {dz.currency}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      {dz.city ? `${dz.city}, ${dz.country}` : dz.country}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      {dz.currency}
+                    </div>
                     {dz.contactEmail && (
                       <div className="flex items-center gap-2">
                         <Mail className="h-4 w-4" />

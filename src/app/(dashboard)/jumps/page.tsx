@@ -40,9 +40,10 @@ export default function JumpsPage() {
 
   const fetchData = async () => {
     try {
+      const timestamp = Date.now()
       const [jumpsRes, userRes] = await Promise.all([
-        fetch("/api/jumps?limit=50&orderBy=jumpNumber&order=desc"),
-        fetch("/api/user")
+        fetch(`/api/jumps?limit=50&orderBy=jumpNumber&order=desc&t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/user?t=${timestamp}`, { cache: 'no-store' })
       ])
 
       const [jumpsData, userData] = await Promise.all([
@@ -50,6 +51,7 @@ export default function JumpsPage() {
         userRes.json()
       ])
 
+      console.log("Fetched jumps:", jumpsData.data?.length || 0, "total:", jumpsData.pagination?.total || 0)
       setJumps(jumpsData.data || [])
       setTotal(jumpsData.pagination?.total || 0)
       setUnitPreference(userData.unitPreference || "IMPERIAL")

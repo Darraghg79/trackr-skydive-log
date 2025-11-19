@@ -77,6 +77,12 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
         userRes.json(),
       ])
 
+      console.log("Fetched dropzones for form:", dzData.data?.length || 0, "items")
+      console.log("Fetched rigs for form:", rigData.data?.length || 0, "items")
+      console.log("Fetched jump types for form:", jtData.data?.length || 0, "items")
+      console.log("Fetched aircrafts for form:", acData.data?.length || 0, "items")
+      console.log("User data:", userData?.currentJumpNumber)
+
       setDropzones(dzData.data || [])
       setRigs(rigData.data || [])
       setJumpTypes(jtData.data || [])
@@ -91,6 +97,11 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
       }
     } catch (error) {
       console.error("Failed to fetch options:", error)
+      toast({
+        title: "Failed to load form options",
+        description: "Please refresh the page to try again",
+        variant: "destructive"
+      })
     }
   }
 

@@ -35,11 +35,19 @@ export default function ExportPage() {
         "dropzone",
         "aircraft",
         "jumpType",
+        "rig",
         "exitAltitude",
         "deploymentAltitude",
         "freefallTime",
         "isCutaway",
-        "notes"
+        "isWorkJump",
+        "workJumpType",
+        "customerName",
+        "hasHandcam",
+        "photoUrl",
+        "notes",
+        "createdAt",
+        "updatedAt"
       ]
 
       const csvRows = [headers.join(",")]
@@ -51,11 +59,19 @@ export default function ExportPage() {
           `"${jump.dropzone?.name || ""}"`,
           `"${jump.aircraft?.name || ""}"`,
           `"${jump.jumpType?.name || ""}"`,
+          `"${jump.rig?.name || ""}"`,
           jump.exitAltitude || "",
           jump.deploymentAltitude || "",
           jump.freefallTime || "",
           jump.isCutaway ? "true" : "false",
-          `"${(jump.notes || "").replace(/"/g, '""')}"` // Escape quotes
+          jump.isWorkJump ? "true" : "false",
+          jump.workJumpType || "",
+          `"${jump.customerName || ""}"`,
+          jump.hasHandcam ? "true" : "false",
+          jump.photoUrl || "",
+          `"${(jump.notes || "").replace(/"/g, '""')}"`, // Escape quotes
+          jump.createdAt || "",
+          jump.updatedAt || ""
         ]
         csvRows.push(row.join(","))
       })
@@ -111,10 +127,12 @@ export default function ExportPage() {
             <h4 className="font-medium mb-2">What's included:</h4>
             <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
               <li>Jump number, date, and location</li>
-              <li>Aircraft and jump type information</li>
+              <li>Aircraft, jump type, and rig information</li>
               <li>Altitude data (exit and deployment)</li>
               <li>Freefall time and cutaway status</li>
-              <li>Jump notes and comments</li>
+              <li>Work jump details (type, customer name, handcam)</li>
+              <li>Photo URLs and jump notes</li>
+              <li>Timestamps (created and updated)</li>
             </ul>
           </div>
 

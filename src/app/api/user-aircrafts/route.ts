@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     const items = await prisma.userAircraft.findMany({
       where,
-      orderBy: { sortOrder: 'asc' },
+      orderBy: { name: 'asc' },
     })
 
     return NextResponse.json({ data: items })

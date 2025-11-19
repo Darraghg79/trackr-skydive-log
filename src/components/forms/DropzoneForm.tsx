@@ -19,11 +19,12 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: initialData?.name || "",
+    city: initialData?.city || "",
     address: initialData?.address || "",
     country: initialData?.country || "",
     contactName: initialData?.contactName || "",
     contactEmail: initialData?.contactEmail || "",
-    currency: initialData?.currency || "EUR",
+    currency: initialData?.currency || "",
     rateAFF: initialData?.rateAFF || "",
     rateTandem: initialData?.rateTandem || "",
     rateCamera: initialData?.rateCamera || "",
@@ -102,41 +103,50 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
           />
         </div>
 
-        <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="address">Address *</Label>
-          <Textarea
-            id="address"
-            value={formData.address}
+        <div className="space-y-2">
+          <Label htmlFor="city">City</Label>
+          <Input
+            id="city"
+            value={formData.city}
             onChange={(e) =>
-              setFormData({ ...formData, address: e.target.value })
+              setFormData({ ...formData, city: e.target.value })
             }
-            required
-            rows={3}
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="country">Country *</Label>
+          <Label htmlFor="country">Country</Label>
           <Input
             id="country"
             value={formData.country}
             onChange={(e) =>
               setFormData({ ...formData, country: e.target.value })
             }
-            required
+          />
+        </div>
+
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="address">Address</Label>
+          <Textarea
+            id="address"
+            value={formData.address}
+            onChange={(e) =>
+              setFormData({ ...formData, address: e.target.value })
+            }
+            rows={3}
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="currency">Currency *</Label>
+          <Label htmlFor="currency">Currency</Label>
           <Input
             id="currency"
             value={formData.currency}
             onChange={(e) =>
-              setFormData({ ...formData, currency: e.target.value })
+              setFormData({ ...formData, currency: e.target.value.toUpperCase() })
             }
             maxLength={3}
-            required
+            placeholder="USD, EUR, GBP, etc."
           />
         </div>
 

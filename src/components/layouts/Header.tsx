@@ -38,9 +38,9 @@ export function Header() {
                 pathname === "/" && "bg-muted"
               )}
             >
-              <Link href="/">
-                <Home className="h-4 w-4 mr-2" />
-                Dashboard
+              <Link href="/" className="inline-flex items-center gap-2">
+                <Home className="h-4 w-4" />
+                <span>Dashboard</span>
               </Link>
             </Button>
             <Button
@@ -51,9 +51,9 @@ export function Header() {
                 pathname.startsWith("/reports") && "bg-muted"
               )}
             >
-              <Link href="/reports">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Reports
+              <Link href="/reports" className="inline-flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                <span>Reports</span>
               </Link>
             </Button>
           </nav>

@@ -60,12 +60,13 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
 
   const fetchOptions = async () => {
     try {
+      const timestamp = Date.now()
       const [dzRes, rigRes, jtRes, acRes, userRes] = await Promise.all([
-        fetch("/api/dropzones?isActive=true"),
-        fetch("/api/rigs?isActive=true"),
-        fetch("/api/user-jump-types?isActive=true"),
-        fetch("/api/user-aircrafts?isActive=true"),
-        fetch("/api/user"),
+        fetch(`/api/dropzones?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/rigs?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/user-jump-types?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/user-aircrafts?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/user?t=${timestamp}`, { cache: 'no-store' }),
       ])
 
       const [dzData, rigData, jtData, acData, userData] = await Promise.all([

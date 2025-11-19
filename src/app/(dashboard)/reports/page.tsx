@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { Plane, TrendingUp, Calendar, MapPin, Award, Clock } from "lucide-react"
 import { format } from "date-fns"
+import { secondsToHHMMSS, secondsToReadable } from "@/lib/utils/timeFormat"
 
 export const dynamic = 'force-dynamic'
 
@@ -115,9 +116,6 @@ export default function ReportsPage() {
     return <PageLoader />
   }
 
-  const freefallHours = Math.floor((data?.totalFreefallTime || 0) / 3600)
-  const freefallMinutes = Math.floor(((data?.totalFreefallTime || 0) % 3600) / 60)
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -146,10 +144,10 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {freefallHours > 0 ? `${freefallHours}h ${freefallMinutes}m` : `${freefallMinutes}m`}
+              {secondsToReadable(data?.totalFreefallTime || 0)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {data?.totalFreefallTime || 0} seconds total
+              {secondsToHHMMSS(data?.totalFreefallTime || 0)} total
             </p>
           </CardContent>
         </Card>
@@ -270,7 +268,7 @@ export default function ReportsPage() {
             <div className="flex flex-col items-center p-4 border rounded-lg">
               <Clock className="h-8 w-8 text-primary mb-2" />
               <div className="text-2xl font-bold">
-                {freefallHours}h {freefallMinutes}m
+                {secondsToReadable(data?.totalFreefallTime || 0)}
               </div>
               <div className="text-sm text-muted-foreground text-center">Freefall Time</div>
             </div>

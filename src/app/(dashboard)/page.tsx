@@ -8,6 +8,7 @@ import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { OnboardingBanner } from "@/components/shared/OnboardingBanner"
 import { Plane, MapPin, TrendingUp, Calendar, Plus } from "lucide-react"
 import { format } from "date-fns"
+import { secondsToHHMMSS, secondsToReadable } from "@/lib/utils/timeFormat"
 
 export const dynamic = 'force-dynamic'
 
@@ -118,10 +119,10 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {Math.floor((stats?.totalFreefallTime || 0) / 60)}m
+              {secondsToReadable(stats?.totalFreefallTime || 0)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {stats?.totalFreefallTime || 0} seconds total
+              {secondsToHHMMSS(stats?.totalFreefallTime || 0)} total
             </p>
           </CardContent>
         </Card>

@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/shared/EmptyState"
 import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { Plus, Plane, Calendar, MapPin } from "lucide-react"
 import { format } from "date-fns"
+import { secondsToHHMMSS } from "@/lib/utils/timeFormat"
 
 
 interface Jump {
@@ -108,7 +109,7 @@ export default function JumpsPage() {
                       )}
                       {jump.freefallTime && (
                         <span className="text-sm text-muted-foreground">
-                          {jump.freefallTime}s freefall
+                          {secondsToHHMMSS(jump.freefallTime)} freefall
                         </span>
                       )}
                     </div>

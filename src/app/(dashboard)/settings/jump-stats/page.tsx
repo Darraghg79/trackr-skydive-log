@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/useToast"
 import { Loader2, AlertTriangle } from "lucide-react"
+import { secondsToHHMMSS, parseHHMMSSToSeconds } from "@/lib/utils/timeFormat"
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +18,7 @@ export default function JumpStatsPage() {
   const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({
     currentJumpNumber: 1,
-    startingFreefallTime: 0,
+    startingFreefallTime: "00:00:00",
     startingCutaways: 0,
     reason: ""
   })
@@ -36,7 +37,7 @@ export default function JumpStatsPage() {
 
       setFormData({
         currentJumpNumber: data.currentJumpNumber || 1,
-        startingFreefallTime: data.startingFreefallTime || 0,
+        startingFreefallTime: secondsToHHMMSS(data.startingFreefallTime || 0),
         startingCutaways: data.startingCutaways || 0,
         reason: ""
       })
@@ -67,7 +68,7 @@ export default function JumpStatsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           currentJumpNumber: parseInt(formData.currentJumpNumber.toString()),
-          startingFreefallTime: parseInt(formData.startingFreefallTime.toString()),
+          startingFreefallTime: parseHHMMSSToSeconds(formData.startingFreefallTime.toString()),
           startingCutaways: parseInt(formData.startingCutaways.toString()),
           reason: formData.reason
         }),
@@ -151,19 +152,19 @@ export default function JumpStatsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="startingFreefallTime">Starting Freefall Time (seconds)</Label>
+              <Label htmlFor="startingFreefallTime">Starting Freefall Time (HH:MM:SS)</Label>
               <Input
                 id="startingFreefallTime"
-                type="number"
-                min="0"
+                type="text"
                 value={formData.startingFreefallTime}
                 onChange={(e) =>
-                  setFormData({ ...formData, startingFreefallTime: parseInt(e.target.value) || 0 })
+                  setFormData({ ...formData, startingFreefallTime: e.target.value })
                 }
+                placeholder="00:00:00 or 01:23 or 60"
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Total freefall time from previous jumps (before using TrackR)
+                Total freefall time from previous jumps - Enter as HH:MM:SS, MM:SS, or seconds
               </p>
             </div>
 

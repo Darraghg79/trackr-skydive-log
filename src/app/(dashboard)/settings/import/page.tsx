@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/useToast"
 import { Upload, FileText, AlertCircle, CheckCircle } from "lucide-react"
 
@@ -13,8 +14,9 @@ export const dynamic = 'force-dynamic'
 
 export default function ImportJumpsPage() {
   const [file, setFile] = useState<File | null>(null)
+  const [overwrite, setOverwrite] = useState(false)
   const [importing, setImporting] = useState(false)
-  const [result, setResult] = useState<{ success: boolean; message: string; imported?: number } | null>(null)
+  const [result, setResult] = useState<{ success: boolean; message: string; imported?: number; updated?: number } | null>(null)
   const router = useRouter()
   const { toast } = useToast()
 
@@ -70,7 +72,7 @@ export default function ImportJumpsPage() {
       const res = await fetch("/api/jumps/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jumps }),
+        body: JSON.stringify({ jumps, overwrite }),
       })
 
       if (!res.ok) {
@@ -80,15 +82,21 @@ export default function ImportJumpsPage() {
 
       const data = await res.json()
 
+      const parts = []
+      if (data.imported > 0) parts.push(`${data.imported} imported`)
+      if (data.updated > 0) parts.push(`${data.updated} updated`)
+      const message = `Successfully ${parts.join(", ")}`
+
       setResult({
         success: true,
-        message: `Successfully imported ${data.imported} jumps`,
+        message,
         imported: data.imported,
+        updated: data.updated,
       })
 
       toast({
         title: "Import successful",
-        description: `${data.imported} jumps imported`
+        description: message
       })
 
       // Refresh after success
@@ -138,6 +146,22 @@ export default function ImportJumpsPage() {
                 {file.name} ({(file.size / 1024).toFixed(2)} KB)
               </div>
             )}
+          </div>
+
+          {/* Overwrite Option */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="overwrite"
+              checked={overwrite}
+              onCheckedChange={(checked) => setOverwrite(checked as boolean)}
+              disabled={importing}
+            />
+            <Label
+              htmlFor="overwrite"
+              className="text-sm font-normal cursor-pointer"
+            >
+              Overwrite existing jumps with matching jump numbers
+            </Label>
           </div>
 
           {/* Result Message */}
@@ -204,7 +228,8 @@ export default function ImportJumpsPage() {
                 <p><strong>Required:</strong> jumpnumber, date, dropzone</p>
                 <p><strong>Optional:</strong> aircraft, jumptype, exitaltitude, deploymentaltitude, freefalltime, notes</p>
                 <p><strong>Date format:</strong> YYYY-MM-DD (e.g., 2024-01-15)</p>
-                <p><strong>Note:</strong> Dropzone, aircraft, and jump type names must match existing records in your database.</p>
+                <p><strong>Auto-creation:</strong> Missing dropzones, aircraft, and jump types will be automatically created.</p>
+                <p><strong>Overwrite mode:</strong> Enable to update jumps with matching jump numbers (otherwise they'll be skipped).</p>
               </div>
             </CardContent>
           </Card>

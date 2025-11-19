@@ -11,7 +11,7 @@ const navItems = [
   { href: "/jumps", label: "Jumps", icon: Plane },
   { href: "/jumps/new", label: "Log", icon: Plus, isAction: true },
   { href: "/reports", label: "Reports", icon: BarChart3 },
-  { href: "/settings/profile", label: "More", icon: Menu },
+  { href: "/settings", label: "More", icon: Menu },
 ]
 
 export function BottomNav() {

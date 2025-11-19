@@ -17,6 +17,7 @@ interface DropzoneFormProps {
 
 export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
   const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [formData, setFormData] = useState({
     name: initialData?.name || "",
     city: initialData?.city || "",
@@ -40,6 +41,7 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setErrors({})
 
     try {
       const payload = {
@@ -73,7 +75,26 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
 
       if (!res.ok) {
         const error = await res.json()
-        throw new Error(error.error || "Failed to save dropzone")
+
+        // Handle validation errors with field-level details
+        if (error.details && Array.isArray(error.details)) {
+          const fieldErrors: Record<string, string> = {}
+          error.details.forEach((detail: any) => {
+            const field = detail.path[0]
+            if (field) {
+              fieldErrors[field] = detail.message
+            }
+          })
+          setErrors(fieldErrors)
+          toast({
+            title: "Validation failed",
+            description: "Please check the highlighted fields",
+            variant: "destructive"
+          })
+        } else {
+          throw new Error(error.error || "Failed to save dropzone")
+        }
+        return
       }
 
       toast({
@@ -100,7 +121,9 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
               setFormData({ ...formData, name: e.target.value })
             }
             required
+            className={errors.name ? "border-red-500" : ""}
           />
+          {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
         </div>
 
         <div className="space-y-2">
@@ -111,7 +134,9 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
             onChange={(e) =>
               setFormData({ ...formData, city: e.target.value })
             }
+            className={errors.city ? "border-red-500" : ""}
           />
+          {errors.city && <p className="text-sm text-red-500">{errors.city}</p>}
         </div>
 
         <div className="space-y-2">
@@ -122,7 +147,9 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
             onChange={(e) =>
               setFormData({ ...formData, country: e.target.value })
             }
+            className={errors.country ? "border-red-500" : ""}
           />
+          {errors.country && <p className="text-sm text-red-500">{errors.country}</p>}
         </div>
 
         <div className="space-y-2 md:col-span-2">
@@ -134,7 +161,9 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
               setFormData({ ...formData, address: e.target.value })
             }
             rows={3}
+            className={errors.address ? "border-red-500" : ""}
           />
+          {errors.address && <p className="text-sm text-red-500">{errors.address}</p>}
         </div>
 
         <div className="space-y-2">
@@ -147,7 +176,9 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
             }
             maxLength={3}
             placeholder="USD, EUR, GBP, etc."
+            className={errors.currency ? "border-red-500" : ""}
           />
+          {errors.currency && <p className="text-sm text-red-500">{errors.currency}</p>}
         </div>
 
         <div className="space-y-2">
@@ -158,7 +189,9 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
             onChange={(e) =>
               setFormData({ ...formData, contactName: e.target.value })
             }
+            className={errors.contactName ? "border-red-500" : ""}
           />
+          {errors.contactName && <p className="text-sm text-red-500">{errors.contactName}</p>}
         </div>
 
         <div className="space-y-2">
@@ -170,7 +203,9 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
             onChange={(e) =>
               setFormData({ ...formData, contactEmail: e.target.value })
             }
+            className={errors.contactEmail ? "border-red-500" : ""}
           />
+          {errors.contactEmail && <p className="text-sm text-red-500">{errors.contactEmail}</p>}
         </div>
       </div>
 
@@ -188,7 +223,9 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
               onChange={(e) =>
                 setFormData({ ...formData, rateAFF: e.target.value })
               }
+              className={errors.rateAFF ? "border-red-500" : ""}
             />
+            {errors.rateAFF && <p className="text-sm text-red-500">{errors.rateAFF}</p>}
           </div>
 
           <div className="space-y-2">
@@ -202,7 +239,9 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
               onChange={(e) =>
                 setFormData({ ...formData, rateTandem: e.target.value })
               }
+              className={errors.rateTandem ? "border-red-500" : ""}
             />
+            {errors.rateTandem && <p className="text-sm text-red-500">{errors.rateTandem}</p>}
           </div>
 
           <div className="space-y-2">
@@ -216,7 +255,9 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
               onChange={(e) =>
                 setFormData({ ...formData, rateCamera: e.target.value })
               }
+              className={errors.rateCamera ? "border-red-500" : ""}
             />
+            {errors.rateCamera && <p className="text-sm text-red-500">{errors.rateCamera}</p>}
           </div>
 
           <div className="space-y-2">
@@ -230,7 +271,9 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
               onChange={(e) =>
                 setFormData({ ...formData, rateCoach: e.target.value })
               }
+              className={errors.rateCoach ? "border-red-500" : ""}
             />
+            {errors.rateCoach && <p className="text-sm text-red-500">{errors.rateCoach}</p>}
           </div>
 
           <div className="space-y-2">
@@ -244,7 +287,9 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
               onChange={(e) =>
                 setFormData({ ...formData, rateHandcam: e.target.value })
               }
+              className={errors.rateHandcam ? "border-red-500" : ""}
             />
+            {errors.rateHandcam && <p className="text-sm text-red-500">{errors.rateHandcam}</p>}
           </div>
 
           <div className="space-y-2">
@@ -259,7 +304,9 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
               onChange={(e) =>
                 setFormData({ ...formData, taxRate: e.target.value })
               }
+              className={errors.taxRate ? "border-red-500" : ""}
             />
+            {errors.taxRate && <p className="text-sm text-red-500">{errors.taxRate}</p>}
           </div>
         </div>
       </div>

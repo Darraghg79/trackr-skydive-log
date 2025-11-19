@@ -10,6 +10,8 @@ import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { Plus, Plane, Calendar, MapPin } from "lucide-react"
 import { format } from "date-fns"
 import { secondsToHHMMSS } from "@/lib/utils/timeFormat"
+import { calculateFreefallDistance, formatDistanceWithUnits } from "@/lib/utils/distanceFormat"
+import { UnitPreference } from "@prisma/client"
 
 
 interface Jump {
@@ -21,6 +23,7 @@ interface Jump {
   customerName?: string
   isCutaway: boolean
   exitAltitude?: number
+  deploymentAltitude?: number
   freefallTime?: number
   dropzone: { id: string; name: string }
 }
@@ -29,19 +32,29 @@ export default function JumpsPage() {
   const [jumps, setJumps] = useState<Jump[]>([])
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
+  const [unitPreference, setUnitPreference] = useState<UnitPreference>("IMPERIAL")
 
   useEffect(() => {
-    fetchJumps()
+    fetchData()
   }, [])
 
-  const fetchJumps = async () => {
+  const fetchData = async () => {
     try {
-      const res = await fetch("/api/jumps?limit=50&orderBy=jumpNumber&order=desc")
-      const data = await res.json()
-      setJumps(data.data || [])
-      setTotal(data.pagination?.total || 0)
+      const [jumpsRes, userRes] = await Promise.all([
+        fetch("/api/jumps?limit=50&orderBy=jumpNumber&order=desc"),
+        fetch("/api/user")
+      ])
+
+      const [jumpsData, userData] = await Promise.all([
+        jumpsRes.json(),
+        userRes.json()
+      ])
+
+      setJumps(jumpsData.data || [])
+      setTotal(jumpsData.pagination?.total || 0)
+      setUnitPreference(userData.unitPreference || "IMPERIAL")
     } catch (error) {
-      console.error("Failed to fetch jumps:", error)
+      console.error("Failed to fetch data:", error)
     } finally {
       setLoading(false)
     }
@@ -98,7 +111,7 @@ export default function JumpsPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {jump.isWorkJump && (
                         <Badge variant="secondary">
                           {jump.workJumpType}
@@ -110,6 +123,19 @@ export default function JumpsPage() {
                       {jump.freefallTime && (
                         <span className="text-sm text-muted-foreground">
                           {secondsToHHMMSS(jump.freefallTime)} freefall
+                        </span>
+                      )}
+                      {jump.exitAltitude && jump.deploymentAltitude && jump.freefallTime && (
+                        <span className="text-sm text-muted-foreground">
+                          {formatDistanceWithUnits(
+                            calculateFreefallDistance(
+                              jump.exitAltitude,
+                              jump.deploymentAltitude,
+                              jump.freefallTime,
+                              unitPreference
+                            ),
+                            unitPreference
+                          )}
                         </span>
                       )}
                     </div>

@@ -9,6 +9,8 @@ import { OnboardingBanner } from "@/components/shared/OnboardingBanner"
 import { Plane, MapPin, TrendingUp, Calendar, Plus } from "lucide-react"
 import { format } from "date-fns"
 import { secondsToHHMMSS, secondsToReadable } from "@/lib/utils/timeFormat"
+import { calculateFreefallDistance, formatDistanceWithUnits } from "@/lib/utils/distanceFormat"
+import { UnitPreference } from "@prisma/client"
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +22,7 @@ interface DashboardStats {
   recentJumps: any[]
   hasDropzones: boolean
   hasAircraft: boolean
+  unitPreference: UnitPreference
 }
 
 export default function DashboardPage() {
@@ -60,6 +63,7 @@ export default function DashboardPage() {
         recentJumps: jumpsData.data || [],
         hasDropzones: (dropzonesData.data || []).length > 0,
         hasAircraft: (aircraftData.data || []).length > 0,
+        unitPreference: userData.unitPreference || "IMPERIAL",
       })
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error)
@@ -186,8 +190,23 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right text-sm text-muted-foreground">
-                    {jump.jumpType?.name || "N/A"}
+                  <div className="text-right">
+                    <div className="text-sm font-medium text-muted-foreground">
+                      {jump.jumpType?.name || "N/A"}
+                    </div>
+                    {jump.exitAltitude && jump.deploymentAltitude && jump.freefallTime && (
+                      <div className="text-xs text-muted-foreground">
+                        {formatDistanceWithUnits(
+                          calculateFreefallDistance(
+                            jump.exitAltitude,
+                            jump.deploymentAltitude,
+                            jump.freefallTime,
+                            stats.unitPreference
+                          ),
+                          stats.unitPreference
+                        )}
+                      </div>
+                    )}
                   </div>
                 </Link>
               ))}

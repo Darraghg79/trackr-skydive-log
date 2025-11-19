@@ -20,12 +20,14 @@ export async function GET(request: NextRequest) {
     const orderBy = searchParams.get('orderBy') || 'jumpNumber'
     const order = searchParams.get('order') || 'desc'
     const dropzoneId = searchParams.get('dropzoneId')
+    const jumpTypeId = searchParams.get('jumpTypeId')
     const isWorkJump = searchParams.get('isWorkJump')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
 
     const where: any = { userId: user.id }
     if (dropzoneId) where.dropzoneId = dropzoneId
+    if (jumpTypeId) where.jumpTypeId = jumpTypeId
     if (isWorkJump !== null) where.isWorkJump = isWorkJump === 'true'
     if (startDate || endDate) {
       where.date = {}

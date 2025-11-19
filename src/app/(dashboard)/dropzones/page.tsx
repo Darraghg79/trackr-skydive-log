@@ -7,7 +7,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { PageLoader } from "@/components/shared/LoadingSpinner"
-import { Plus, MapPin, DollarSign, Mail } from "lucide-react"
+import { Plus, MapPin, DollarSign, Mail, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 
 interface Dropzone {
@@ -25,21 +26,26 @@ interface Dropzone {
 export default function DropzonesPage() {
   const [dropzones, setDropzones] = useState<Dropzone[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchDropzones = async () => {
     try {
       setLoading(true)
+      setError(null)
       const res = await fetch("/api/dropzones?orderBy=name&order=asc&t=" + Date.now(), {
         cache: "no-store"
       })
       if (!res.ok) {
-        throw new Error(`API error: ${res.status}`)
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || `API error: ${res.status}`)
       }
       const data = await res.json()
+      console.log("Fetched dropzones:", data.data?.length || 0, "dropzones")
       setDropzones(data.data || [])
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to fetch dropzones:", error)
-      setDropzones([])
+      setError(error.message || "Failed to load dropzones")
+      // Don't clear dropzones on error - keep showing what we have
     } finally {
       setLoading(false)
     }
@@ -77,6 +83,24 @@ export default function DropzonesPage() {
           </Link>
         </Button>
       </div>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error loading dropzones</AlertTitle>
+          <AlertDescription>
+            {error}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchDropzones}
+              className="ml-4"
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {dropzones.length === 0 ? (
         <EmptyState

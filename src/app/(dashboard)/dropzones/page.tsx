@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -26,18 +25,21 @@ interface Dropzone {
 export default function DropzonesPage() {
   const [dropzones, setDropzones] = useState<Dropzone[]>([])
   const [loading, setLoading] = useState(true)
-  const pathname = usePathname()
 
   const fetchDropzones = async () => {
     try {
       setLoading(true)
-      const res = await fetch("/api/dropzones?orderBy=name&order=asc", {
+      const res = await fetch("/api/dropzones?orderBy=name&order=asc&t=" + Date.now(), {
         cache: "no-store"
       })
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`)
+      }
       const data = await res.json()
       setDropzones(data.data || [])
     } catch (error) {
       console.error("Failed to fetch dropzones:", error)
+      setDropzones([])
     } finally {
       setLoading(false)
     }
@@ -45,10 +47,8 @@ export default function DropzonesPage() {
 
   useEffect(() => {
     fetchDropzones()
-  }, [pathname])
 
-  useEffect(() => {
-    // Refetch when window regains focus
+    // Refetch when window regains focus (user navigates back)
     const handleFocus = () => {
       fetchDropzones()
     }

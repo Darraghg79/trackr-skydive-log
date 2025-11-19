@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -21,18 +20,21 @@ interface Aircraft {
 export default function AircraftPage() {
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [loading, setLoading] = useState(true)
-  const pathname = usePathname()
 
   const fetchAircraft = async () => {
     try {
       setLoading(true)
-      const res = await fetch("/api/user-aircrafts", {
+      const res = await fetch("/api/user-aircrafts?t=" + Date.now(), {
         cache: "no-store"
       })
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`)
+      }
       const data = await res.json()
       setAircraft(data.data || [])
     } catch (error) {
       console.error("Failed to fetch aircraft:", error)
+      setAircraft([])
     } finally {
       setLoading(false)
     }
@@ -40,10 +42,8 @@ export default function AircraftPage() {
 
   useEffect(() => {
     fetchAircraft()
-  }, [pathname])
 
-  useEffect(() => {
-    // Refetch when window regains focus
+    // Refetch when window regains focus (user navigates back)
     const handleFocus = () => {
       fetchAircraft()
     }

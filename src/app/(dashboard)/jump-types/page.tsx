@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -21,18 +20,21 @@ interface JumpType {
 export default function JumpTypesPage() {
   const [jumpTypes, setJumpTypes] = useState<JumpType[]>([])
   const [loading, setLoading] = useState(true)
-  const pathname = usePathname()
 
   const fetchJumpTypes = async () => {
     try {
       setLoading(true)
-      const res = await fetch("/api/user-jump-types", {
+      const res = await fetch("/api/user-jump-types?t=" + Date.now(), {
         cache: "no-store"
       })
+      if (!res.ok) {
+        throw new Error(`API error: ${res.status}`)
+      }
       const data = await res.json()
       setJumpTypes(data.data || [])
     } catch (error) {
       console.error("Failed to fetch jump types:", error)
+      setJumpTypes([])
     } finally {
       setLoading(false)
     }
@@ -40,10 +42,8 @@ export default function JumpTypesPage() {
 
   useEffect(() => {
     fetchJumpTypes()
-  }, [pathname])
 
-  useEffect(() => {
-    // Refetch when window regains focus
+    // Refetch when window regains focus (user navigates back)
     const handleFocus = () => {
       fetchJumpTypes()
     }

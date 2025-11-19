@@ -12,7 +12,7 @@ import { secondsToHHMMSS, secondsToReadable } from "@/lib/utils/timeFormat"
 import { calculateFreefallDistance, formatDistanceWithUnits } from "@/lib/utils/distanceFormat"
 import { UnitPreference } from "@prisma/client"
 
-export const dynamic = 'force-dynamic'
+
 
 interface DashboardStats {
   totalJumps: number

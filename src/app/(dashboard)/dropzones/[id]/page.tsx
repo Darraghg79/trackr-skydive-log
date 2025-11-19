@@ -115,9 +115,16 @@ export default function DropzoneDetailPage() {
         method: "DELETE",
       })
 
-      if (!res.ok) throw new Error("Failed to delete")
-
       const data = await res.json()
+
+      if (!res.ok) {
+        toast({
+          title: "Failed to delete dropzone",
+          description: data.details || data.error || "An error occurred",
+          variant: "destructive"
+        })
+        return
+      }
 
       toast({
         title: "Dropzone deleted",
@@ -132,6 +139,7 @@ export default function DropzoneDetailPage() {
       console.error("Error deleting dropzone:", error)
       toast({
         title: "Failed to delete dropzone",
+        description: "An unexpected error occurred",
         variant: "destructive"
       })
     } finally {

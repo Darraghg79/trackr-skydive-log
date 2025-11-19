@@ -57,9 +57,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
+    // Filter out undefined values to avoid setting NULL on NOT NULL fields
+    const updateData = Object.fromEntries(
+      Object.entries(validated).filter(([_, value]) => value !== undefined)
+    )
+
     const item = await prisma.dropzone.update({
       where: { id },
-      data: validated,
+      data: updateData,
     })
 
     return NextResponse.json(item)
@@ -96,10 +101,22 @@ export async function DELETE(
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    // Count jumps using this dropzone
-    const jumpCount = await prisma.jump.count({
-      where: { dropzoneId: id, userId: user.id },
-    })
+    // Count jumps and invoices using this dropzone
+    const [jumpCount, invoiceCount] = await Promise.all([
+      prisma.jump.count({ where: { dropzoneId: id, userId: user.id } }),
+      prisma.invoice.count({ where: { dropzoneId: id, userId: user.id } }),
+    ])
+
+    // Check if there are invoices - we can't delete if there are
+    if (invoiceCount > 0) {
+      return NextResponse.json(
+        {
+          error: 'Cannot delete dropzone with invoices',
+          details: `This dropzone has ${invoiceCount} invoice(s). Delete or reassign those invoices first.`
+        },
+        { status: 400 }
+      )
+    }
 
     // If reassignToId is provided, reassign jumps before deleting
     if (reassignToId) {
@@ -120,9 +137,15 @@ export async function DELETE(
         where: { dropzoneId: id, userId: user.id },
         data: { dropzoneId: reassignToId },
       })
+    } else if (jumpCount > 0) {
+      // If there are jumps but no reassignToId, we can't delete
+      return NextResponse.json(
+        { error: 'Cannot delete dropzone with jumps without reassignment' },
+        { status: 400 }
+      )
     }
 
-    // Delete the dropzone
+    // Delete the dropzone (should be safe now)
     await prisma.dropzone.delete({ where: { id } })
 
     return NextResponse.json({

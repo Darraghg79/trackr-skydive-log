@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/useToast"
 import { Loader2 } from "lucide-react"
+import { secondsToHHMMSS, parseHHMMSSToSeconds, isValidHHMMSS } from "@/lib/utils/timeFormat"
 
 interface JumpFormProps {
   initialData?: any
@@ -41,7 +42,7 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
     rigId: initialData?.rigId || "",
     exitAltitude: initialData?.exitAltitude || "",
     deploymentAltitude: initialData?.deploymentAltitude || "",
-    freefallTime: initialData?.freefallTime || "",
+    freefallTime: initialData?.freefallTime ? secondsToHHMMSS(initialData.freefallTime) : "",
     isCutaway: initialData?.isCutaway || false,
     notes: initialData?.notes || "",
     isWorkJump: initialData?.isWorkJump || false,
@@ -107,7 +108,7 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
           ? parseInt(formData.deploymentAltitude.toString())
           : undefined,
         freefallTime: formData.freefallTime
-          ? parseInt(formData.freefallTime.toString())
+          ? parseHHMMSSToSeconds(formData.freefallTime.toString())
           : undefined,
         aircraftId: formData.aircraftId || undefined,
         jumpTypeId: formData.jumpTypeId || undefined,
@@ -274,16 +275,19 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="freefallTime">Freefall Time (seconds)</Label>
+          <Label htmlFor="freefallTime">Freefall Time (HH:MM:SS)</Label>
           <Input
             id="freefallTime"
-            type="number"
-            min="0"
+            type="text"
             value={formData.freefallTime}
             onChange={(e) =>
               setFormData({ ...formData, freefallTime: e.target.value })
             }
+            placeholder="00:00:45 or 01:23 or 60"
           />
+          <p className="text-sm text-muted-foreground">
+            Enter as HH:MM:SS, MM:SS, or seconds
+          </p>
         </div>
       </div>
 

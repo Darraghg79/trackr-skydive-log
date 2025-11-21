@@ -92,7 +92,7 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
       if (!initialData && userData?.currentJumpNumber) {
         setFormData((prev) => ({
           ...prev,
-          jumpNumber: userData.currentJumpNumber,
+          jumpNumber: userData.currentJumpNumber + 1,
         }))
       }
     } catch (error) {

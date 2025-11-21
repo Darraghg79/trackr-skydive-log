@@ -181,7 +181,7 @@ export default function ProfilePage() {
               }
             />
             <p className="text-xs text-muted-foreground">
-              This is the next jump number that will be assigned
+              Your next jump will be logged as jump {profile.currentJumpNumber + 1}
             </p>
           </div>
 

@@ -27,7 +27,15 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    return NextResponse.json(profile)
+    // Get the max jump number from the user's actual jumps
+    const maxJumpResult = await prisma.jump.aggregate({
+      where: { userId: user.id },
+      _max: { jumpNumber: true },
+    })
+
+    const totalJumps = maxJumpResult._max.jumpNumber || 0
+
+    return NextResponse.json({ ...profile, totalJumps })
   } catch (error) {
     console.error('GET /api/user error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

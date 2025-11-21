@@ -43,7 +43,12 @@ export async function middleware(request: NextRequest) {
 
   // Redirect logged-in users away from auth pages
   if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup')) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return NextResponse.redirect(new URL('/jumps', request.url))
+  }
+
+  // Redirect /dashboard to /jumps
+  if (user && request.nextUrl.pathname === '/dashboard') {
+    return NextResponse.redirect(new URL('/jumps', request.url))
   }
 
   return response

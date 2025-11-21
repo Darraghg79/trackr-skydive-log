@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  Home,
   Plane,
   Plus,
   BarChart3,
@@ -32,11 +31,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const navItems = [
-  { href: "/", label: "Home", icon: Home },
   { href: "/jumps", label: "Jumps", icon: Plane },
   { href: "/jumps/new", label: "Log", icon: Plus, isAction: true },
   { href: "/reports", label: "Reports", icon: BarChart3 },
-  { label: "More", icon: Settings, isSettings: true }, // Changed to Settings dropdown
+  { label: "More", icon: Settings, isSettings: true },
 ]
 
 export function BottomNav() {
@@ -47,8 +45,7 @@ export function BottomNav() {
       <div className="flex items-center justify-around h-16 px-2">
         {navItems.map((item, index) => {
           const isActive =
-            item.href && (pathname === item.href ||
-            (item.href !== "/" && pathname.startsWith(item.href)))
+            item.href && (pathname === item.href || pathname.startsWith(item.href))
           const Icon = item.icon
 
           // Center action button (Log Jump)

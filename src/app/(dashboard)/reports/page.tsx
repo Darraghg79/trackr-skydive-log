@@ -93,7 +93,7 @@ export default function ReportsPage() {
         .sort((a, b) => b.count - a.count)
 
       setData({
-        totalJumps: jumps.length,
+        totalJumps: userData.totalJumps || 0,
         totalFreefallTime,
         totalCutaways: userData.startingCutaways || 0,
         jumpsByMonth: [],

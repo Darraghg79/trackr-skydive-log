@@ -96,13 +96,11 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Update user's current jump number if this is higher
+      // Update user's current jump number to the jump that was just logged
       await tx.user.update({
         where: { id: user.id },
         data: {
-          currentJumpNumber: {
-            set: Math.max(jumpData.jumpNumber + 1, 1),
-          },
+          currentJumpNumber: jumpData.jumpNumber,
         },
       })
 

@@ -79,10 +79,202 @@ export async function POST(request: NextRequest) {
     }
 
     const item = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const invoice = await tx.invoice.create({
-        data: { ...invoiceData, userId: user.id },
+      // BUSINESS RULE 1: Auto-add to existing OPEN invoice for the same dropzone
+      let invoice: any
+      let isAddingToExisting = false
+
+      if (invoiceData.status === 'OPEN') {
+        const existingOpenInvoice = await tx.invoice.findFirst({
+          where: {
+            userId: user.id,
+            dropzoneId: invoiceData.dropzoneId,
+            status: 'OPEN',
+          },
+        })
+
+        if (existingOpenInvoice) {
+          invoice = existingOpenInvoice
+          isAddingToExisting = true
+        }
+      }
+
+      // BUSINESS RULE 2: Verify jumps haven't been invoiced already
+      // Extract unique jump IDs (a jump can have both BASE_JUMP and HANDCAM_ADDON line items)
+      const jumpIds = Array.from(new Set(lineItems.map(li => li.jumpId)))
+
+      // Check for BASE_JUMP conflicts
+      const baseJumpLineItems = lineItems.filter(li => li.itemType === 'BASE_JUMP')
+      if (baseJumpLineItems.length > 0) {
+        const baseJumpIds = baseJumpLineItems.map(li => li.jumpId)
+        const existingBaseJumpInvoices = await tx.invoiceLineItem.findMany({
+          where: {
+            jumpId: { in: baseJumpIds },
+            itemType: 'BASE_JUMP',
+          },
+          include: {
+            invoice: {
+              select: {
+                invoiceNumber: true,
+                status: true,
+              },
+            },
+            jump: {
+              select: {
+                jumpNumber: true,
+              },
+            },
+          },
+        })
+
+        if (existingBaseJumpInvoices.length > 0) {
+          const conflicts = existingBaseJumpInvoices.map(
+            item => `Jump #${item.jump.jumpNumber} (Invoice #${item.invoice.invoiceNumber})`
+          ).join(', ')
+          throw new Error(`The following jumps have already been invoiced: ${conflicts}`)
+        }
+      }
+
+      // Check for HANDCAM_ADDON conflicts
+      const handcamLineItems = lineItems.filter(li => li.itemType === 'HANDCAM_ADDON')
+      if (handcamLineItems.length > 0) {
+        const handcamJumpIds = handcamLineItems.map(li => li.jumpId)
+        const existingHandcamInvoices = await tx.invoiceLineItem.findMany({
+          where: {
+            jumpId: { in: handcamJumpIds },
+            itemType: 'HANDCAM_ADDON',
+          },
+          include: {
+            invoice: {
+              select: {
+                invoiceNumber: true,
+              },
+            },
+            jump: {
+              select: {
+                jumpNumber: true,
+              },
+            },
+          },
+        })
+
+        if (existingHandcamInvoices.length > 0) {
+          const conflicts = existingHandcamInvoices.map(
+            item => `Jump #${item.jump.jumpNumber} handcam (Invoice #${item.invoice.invoiceNumber})`
+          ).join(', ')
+          throw new Error(`The following handcam services have already been invoiced: ${conflicts}`)
+        }
+      }
+
+      // Verify all jumps belong to user and are work jumps
+      console.log('=== INVOICE VALIDATION DEBUG START ===')
+      console.log('Expected criteria:', {
+        userId: user.id,
+        dropzoneId: invoiceData.dropzoneId,
+        requestedJumpIds: jumpIds,
+        requestedCount: jumpIds.length,
       })
 
+      const jumps = await tx.jump.findMany({
+        where: {
+          id: { in: jumpIds },
+          userId: user.id,
+          dropzoneId: invoiceData.dropzoneId,
+          isWorkJump: true,
+        },
+      })
+
+      console.log('Found jumps:', {
+        foundCount: jumps.length,
+        foundJumpIds: jumps.map(j => j.id),
+      })
+
+      // Log detailed information about each found jump
+      console.log('Details of each found jump:')
+      jumps.forEach(jump => {
+        console.log({
+          id: jump.id,
+          jumpNumber: jump.jumpNumber,
+          dropzoneId: jump.dropzoneId,
+          userId: jump.userId,
+          isWorkJump: jump.isWorkJump,
+          matchesExpectedDropzone: jump.dropzoneId === invoiceData.dropzoneId,
+          matchesExpectedUser: jump.userId === user.id,
+        })
+      })
+
+      if (jumps.length !== jumpIds.length) {
+        // Log detailed error for debugging
+        const foundIds = jumps.map(j => j.id)
+        const missingIds = jumpIds.filter(id => !foundIds.includes(id))
+
+        console.error('=== VALIDATION FAILURE ===')
+        console.error('Missing jump IDs:', missingIds)
+        console.error('Requested:', jumpIds.length, 'Found:', jumps.length)
+
+        // Try to fetch the missing jumps without filters to see why they failed
+        const missingJumps = await tx.jump.findMany({
+          where: {
+            id: { in: missingIds },
+          },
+          select: {
+            id: true,
+            jumpNumber: true,
+            dropzoneId: true,
+            userId: true,
+            isWorkJump: true,
+          },
+        })
+
+        console.error('Details of missing jumps (if they exist):')
+        missingJumps.forEach(jump => {
+          console.error({
+            id: jump.id,
+            jumpNumber: jump.jumpNumber,
+            dropzoneId: jump.dropzoneId,
+            expectedDropzoneId: invoiceData.dropzoneId,
+            dropzoneMatches: jump.dropzoneId === invoiceData.dropzoneId,
+            userId: jump.userId,
+            expectedUserId: user.id,
+            userMatches: jump.userId === user.id,
+            isWorkJump: jump.isWorkJump,
+            failureReason: !jump.isWorkJump ? 'NOT_WORK_JUMP' :
+                          jump.dropzoneId !== invoiceData.dropzoneId ? 'WRONG_DROPZONE' :
+                          jump.userId !== user.id ? 'WRONG_USER' : 'UNKNOWN',
+          })
+        })
+
+        if (missingJumps.length < missingIds.length) {
+          console.error('Some jump IDs do not exist in database:',
+            missingIds.filter(id => !missingJumps.find(j => j.id === id))
+          )
+        }
+
+        console.error('=== VALIDATION DEBUG END ===')
+        throw new Error(`Failed to validate ${missingIds.length} jump(s). Check server logs for detailed breakdown.`)
+      }
+
+      console.log('=== VALIDATION SUCCESS ===')
+      console.log('All', jumps.length, 'jumps validated successfully')
+      console.log('=== INVOICE VALIDATION DEBUG END ===\n')
+
+      // Create new invoice or use existing OPEN invoice
+      if (!invoice) {
+        invoice = await tx.invoice.create({
+          data: { ...invoiceData, userId: user.id },
+        })
+
+        // Update user's invoice starting number only for new invoices
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            invoiceStartingNumber: {
+              increment: 1,
+            },
+          },
+        })
+      }
+
+      // Add line items to the invoice
       if (lineItems.length > 0) {
         await tx.invoiceLineItem.createMany({
           data: lineItems.map((li) => ({
@@ -92,13 +284,24 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Update user's invoice starting number
-      await tx.user.update({
-        where: { id: user.id },
+      // Recalculate invoice totals
+      const allLineItems = await tx.invoiceLineItem.findMany({
+        where: { invoiceId: invoice.id },
+      })
+
+      const newSubtotal = allLineItems.reduce(
+        (sum, item) => sum + Number(item.lineTotal),
+        0
+      )
+      const newTaxAmount = (newSubtotal * Number(invoiceData.taxRate || 0)) / 100
+      const newTotal = newSubtotal + newTaxAmount
+
+      await tx.invoice.update({
+        where: { id: invoice.id },
         data: {
-          invoiceStartingNumber: {
-            increment: 1,
-          },
+          subtotal: newSubtotal,
+          taxAmount: newTaxAmount,
+          total: newTotal,
         },
       })
 
@@ -115,6 +318,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 })
+    }
+    if (error instanceof Error) {
+      // Business rule violations return clear error messages
+      console.error('POST /api/invoices error:', error.message)
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
     console.error('POST /api/invoices error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

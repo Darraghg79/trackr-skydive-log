@@ -17,6 +17,7 @@ import {
   Upload,
   Download,
   Settings as SettingsIcon,
+  FileText,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -32,9 +33,9 @@ import {
 
 const navItems = [
   { href: "/jumps", label: "Jumps", icon: Plane },
-  { href: "/jumps/new", label: "Log", icon: Plus, isAction: true },
+  { href: "/invoices", label: "Invoices", icon: FileText },
   { href: "/reports", label: "Reports", icon: BarChart3 },
-  { label: "More", icon: Settings, isSettings: true },
+  { label: "Settings", icon: Settings, isSettings: true },
 ]
 
 export function BottomNav() {
@@ -47,20 +48,6 @@ export function BottomNav() {
           const isActive =
             item.href && (pathname === item.href || pathname.startsWith(item.href))
           const Icon = item.icon
-
-          // Center action button (Log Jump)
-          if (item.isAction) {
-            return (
-              <Link key={item.href} href={item.href!} className="flex-1 flex justify-center">
-                <Button
-                  size="lg"
-                  className="h-12 w-12 rounded-full shadow-lg"
-                >
-                  <Icon className="h-6 w-6" />
-                </Button>
-              </Link>
-            )
-          }
 
           // Settings dropdown
           if (item.isSettings) {
@@ -80,6 +67,18 @@ export function BottomNav() {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56 mb-2" align="end" side="top">
+                  <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem asChild>
+                      <Link href="/jumps/new" className="cursor-pointer">
+                        <Plus className="mr-2 h-4 w-4" />
+                        <span>Log Jump</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+
+                  <DropdownMenuSeparator />
+
                   <DropdownMenuLabel>Account Settings</DropdownMenuLabel>
                   <DropdownMenuGroup>
                     <DropdownMenuItem asChild>

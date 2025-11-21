@@ -134,13 +134,27 @@ export default function InvoiceDetailPage() {
               </Button>
             )}
             {invoice.status === "SENT" && (
-              <Button
-                className="w-full"
-                variant="default"
-                onClick={() => updateStatus("PAID")}
-              >
-                Mark as Paid
-              </Button>
+              <>
+                <Button
+                  className="w-full"
+                  variant="default"
+                  onClick={() => updateStatus("PAID")}
+                >
+                  Mark as Paid
+                </Button>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => updateStatus("OPEN")}
+                >
+                  Reopen Invoice
+                </Button>
+              </>
+            )}
+            {invoice.status === "PAID" && (
+              <div className="text-center text-sm text-muted-foreground py-2">
+                Invoice has been paid
+              </div>
             )}
             <Button variant="outline" className="w-full" disabled>
               <Download className="h-4 w-4 mr-2" />

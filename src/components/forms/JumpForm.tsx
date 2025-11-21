@@ -15,8 +15,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/useToast"
-import { Loader2 } from "lucide-react"
+import { Loader2, CheckCircle2 } from "lucide-react"
 import { secondsToHHMMSS, parseHHMMSSToSeconds, isValidHHMMSS } from "@/lib/utils/timeFormat"
+import { format } from "date-fns"
+import { Card, CardContent } from "@/components/ui/card"
 
 interface JumpFormProps {
   initialData?: any
@@ -380,6 +382,43 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
           rows={4}
         />
       </div>
+
+      {/* Signature Display Section - Read Only */}
+      {initialData?.signatures && initialData.signatures.length > 0 && (
+        <Card className="border-green-200 bg-green-50/50">
+          <CardContent className="p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              <h3 className="font-semibold text-lg">Signature</h3>
+            </div>
+
+            {initialData.signatures.map((signature: any) => (
+              <div key={signature.id} className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Signed by:</span>
+                    <p className="font-medium">{signature.signerLicenseNumber}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Date:</span>
+                    <p className="font-medium">
+                      {format(new Date(signature.createdAt), "MMM d, yyyy HH:mm")}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border-2 border-muted rounded-lg bg-white p-4">
+                  <img
+                    src={signature.signatureImage}
+                    alt="Instructor signature"
+                    className="w-full max-h-[200px] object-contain"
+                  />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex gap-4">
         <Button type="submit" disabled={loading}>

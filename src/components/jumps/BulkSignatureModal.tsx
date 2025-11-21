@@ -33,12 +33,37 @@ export function BulkSignatureModal({
   const [isDrawing, setIsDrawing] = useState(false)
   const [hasSignature, setHasSignature] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [context, setContext] = useState<CanvasRenderingContext2D | null>(null)
+  const contextRef = useRef<CanvasRenderingContext2D | null>(null)
+  const isDrawingRef = useRef(false)
 
   useEffect(() => {
-    if (canvasRef.current && open) {
+    if (!open) {
+      console.log('[Canvas Setup] Modal closed, clearing context')
+      contextRef.current = null
+      return
+    }
+
+    console.log('[Canvas Setup] Modal opened, attempting to setup canvas...')
+
+    // Use a small delay to ensure the canvas is fully mounted in the DOM
+    const setupCanvas = () => {
+      if (!canvasRef.current) {
+        console.log('[Canvas Setup] Canvas ref not ready, retrying...')
+        setTimeout(setupCanvas, 50)
+        return
+      }
+
       const canvas = canvasRef.current
       const ctx = canvas.getContext("2d")
+      console.log('[Canvas Setup]', {
+        canvasExists: !!canvas,
+        contextExists: !!ctx,
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+        displayWidth: canvas.getBoundingClientRect().width,
+        displayHeight: canvas.getBoundingClientRect().height,
+      })
+
       if (ctx) {
         // Clear any existing content
         ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -47,10 +72,15 @@ export function BulkSignatureModal({
         ctx.lineWidth = 2
         ctx.lineCap = "round"
         ctx.lineJoin = "round"
-        setContext(ctx)
+        contextRef.current = ctx
         setHasSignature(false)
+        console.log('[Canvas Setup] Context configured successfully', { contextRefSet: !!contextRef.current })
+      } else {
+        console.error('[Canvas Setup] Failed to get 2D context')
       }
     }
+
+    setupCanvas()
   }, [open])
 
   const getCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -81,37 +111,62 @@ export function BulkSignatureModal({
   }
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!context || !canvasRef.current) return
+    console.log('[Start Drawing] Event triggered', {
+      hasContext: !!contextRef.current,
+      hasCanvas: !!canvasRef.current,
+      eventType: 'touches' in e ? 'touch' : 'mouse',
+    })
 
-    e.preventDefault()
+    if (!contextRef.current || !canvasRef.current) {
+      console.log('[Start Drawing] Missing context or canvas, aborting')
+      return
+    }
+
+    // Only prevent default for touch events to avoid blocking mouse clicks
+    if ('touches' in e) {
+      e.preventDefault()
+    }
+
+    const { x, y } = getCoordinates(e)
+    console.log('[Start Drawing] Starting at coordinates', { x, y })
+
+    isDrawingRef.current = true
     setIsDrawing(true)
     setHasSignature(true)
 
-    const { x, y } = getCoordinates(e)
-    context.beginPath()
-    context.moveTo(x, y)
+    contextRef.current.beginPath()
+    contextRef.current.moveTo(x, y)
   }
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || !context || !canvasRef.current) return
+    if (!isDrawingRef.current || !contextRef.current || !canvasRef.current) {
+      return
+    }
 
-    e.preventDefault()
+    // Only prevent default for touch events to avoid blocking mouse movement
+    if ('touches' in e) {
+      e.preventDefault()
+    }
 
     const { x, y } = getCoordinates(e)
-    context.lineTo(x, y)
-    context.stroke()
+    console.log('[Draw] Drawing to', { x, y, isDrawing: isDrawingRef.current })
+
+    contextRef.current.lineTo(x, y)
+    contextRef.current.stroke()
   }
 
-  const stopDrawing = () => {
-    if (!context) return
+  const stopDrawing = (e?: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    console.log('[Stop Drawing] Event triggered', { isDrawing: isDrawingRef.current })
+    if (!contextRef.current) return
+    isDrawingRef.current = false
     setIsDrawing(false)
-    context.closePath()
+    contextRef.current.closePath()
   }
 
   const clearSignature = () => {
-    if (!context || !canvasRef.current) return
+    if (!contextRef.current || !canvasRef.current) return
     const canvas = canvasRef.current
-    context.clearRect(0, 0, canvas.width, canvas.height)
+    contextRef.current.clearRect(0, 0, canvas.width, canvas.height)
     setHasSignature(false)
   }
 

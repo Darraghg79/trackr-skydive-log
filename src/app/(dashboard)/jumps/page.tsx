@@ -5,13 +5,16 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { PageLoader } from "@/components/shared/LoadingSpinner"
-import { Plus, Plane, Calendar, MapPin, Loader2 } from "lucide-react"
+import { useToast } from "@/hooks/useToast"
+import { Plus, Plane, Calendar, MapPin, Loader2, PenTool, CheckCircle2 } from "lucide-react"
 import { format } from "date-fns"
 import { secondsToHHMMSS } from "@/lib/utils/timeFormat"
 import { calculateFreefallDistance, formatDistanceWithUnits } from "@/lib/utils/distanceFormat"
 import { UnitPreference } from "@prisma/client"
+import { BulkSignatureModal } from "@/components/jumps/BulkSignatureModal"
 
 
 interface Jump {
@@ -26,15 +29,21 @@ interface Jump {
   deploymentAltitude?: number
   freefallTime?: number
   dropzone: { id: string; name: string }
+  signatures?: Array<{ id: string }>
 }
 
 export default function JumpsPage() {
+  const { toast } = useToast()
   const [jumps, setJumps] = useState<Jump[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [total, setTotal] = useState(0)
   const [hasMore, setHasMore] = useState(false)
   const [unitPreference, setUnitPreference] = useState<UnitPreference>("IMPERIAL")
+  const [signatureMode, setSignatureMode] = useState(false)
+  const [selectedJumps, setSelectedJumps] = useState<Set<string>>(new Set())
+  const [showSignatureModal, setShowSignatureModal] = useState(false)
+  const [signing, setSigning] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -92,6 +101,62 @@ export default function JumpsPage() {
     return <PageLoader />
   }
 
+  const toggleSignatureMode = () => {
+    setSignatureMode(!signatureMode)
+    setSelectedJumps(new Set())
+  }
+
+  const toggleJumpSelection = (jumpId: string) => {
+    const newSelection = new Set(selectedJumps)
+    if (newSelection.has(jumpId)) {
+      newSelection.delete(jumpId)
+    } else {
+      newSelection.add(jumpId)
+    }
+    setSelectedJumps(newSelection)
+  }
+
+  const handleBulkSign = async (licenseNumber: string, signatureData: string) => {
+    setSigning(true)
+    try {
+      const response = await fetch("/api/jumps/bulk-sign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jumpIds: Array.from(selectedJumps),
+          licenseNumber,
+          signatureData,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to sign jumps")
+      }
+
+      toast({
+        title: "Jumps signed successfully",
+        description: `${selectedJumps.size} jump${selectedJumps.size !== 1 ? "s" : ""} signed`,
+      })
+
+      setShowSignatureModal(false)
+      setSelectedJumps(new Set())
+      setSignatureMode(false)
+
+      // Refresh data to show signature indicators
+      fetchData()
+    } catch (error) {
+      toast({
+        title: "Failed to sign jumps",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      })
+    } finally {
+      setSigning(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -101,12 +166,23 @@ export default function JumpsPage() {
             {total} total jump{total !== 1 ? "s" : ""} logged
           </p>
         </div>
-        <Button asChild>
-          <Link href="/jumps/new">
-            <Plus className="h-4 w-4 mr-2" />
-            Log Jump
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {jumps.length > 0 && (
+            <Button
+              variant={signatureMode ? "default" : "outline"}
+              size="icon"
+              onClick={toggleSignatureMode}
+            >
+              <PenTool className="h-4 w-4" />
+            </Button>
+          )}
+          <Button asChild>
+            <Link href="/jumps/new">
+              <Plus className="h-4 w-4 mr-2" />
+              Log Jump
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {jumps.length === 0 ? (
@@ -120,64 +196,129 @@ export default function JumpsPage() {
       ) : (
         <>
           <div className="space-y-3">
-            {jumps.map((jump) => (
-              <Link key={jump.id} href={`/jumps/${jump.id}`}>
-                <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="text-2xl font-bold text-primary">
-                          #{jump.jumpNumber}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Calendar className="h-4 w-4" />
-                            {format(new Date(jump.date), "MMM d, yyyy")}
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <MapPin className="h-4 w-4" />
-                            {jump.dropzone.name}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {jump.isWorkJump && (
-                          <Badge variant="secondary">
-                            {jump.workJumpType}
-                          </Badge>
-                        )}
-                        {jump.isCutaway && (
-                          <Badge variant="destructive">Cutaway</Badge>
-                        )}
-                        {jump.freefallTime && (
-                          <span className="text-sm text-muted-foreground">
-                            {secondsToHHMMSS(jump.freefallTime)} freefall
-                          </span>
-                        )}
-                        {jump.exitAltitude && jump.deploymentAltitude && jump.freefallTime && (
-                          <span className="text-sm text-muted-foreground">
-                            {formatDistanceWithUnits(
-                              calculateFreefallDistance(
-                                jump.exitAltitude,
-                                jump.deploymentAltitude,
-                                jump.freefallTime,
-                                unitPreference
-                              ),
-                              unitPreference
+            {jumps.map((jump) => {
+              const isSigned = jump.signatures && jump.signatures.length > 0
+
+              return (
+                <div key={jump.id} className="relative">
+                  {signatureMode ? (
+                    <Card className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-4">
+                          <Checkbox
+                            checked={selectedJumps.has(jump.id)}
+                            onCheckedChange={() => toggleJumpSelection(jump.id)}
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className="text-2xl font-bold text-primary">
+                                  #{jump.jumpNumber}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Calendar className="h-4 w-4" />
+                                    {format(new Date(jump.date), "MMM d, yyyy")}
+                                  </div>
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <MapPin className="h-4 w-4" />
+                                    {jump.dropzone.name}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {isSigned && (
+                                  <Badge variant="success" className="gap-1">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    Signed
+                                  </Badge>
+                                )}
+                                {jump.isWorkJump && (
+                                  <Badge variant="secondary">
+                                    {jump.workJumpType}
+                                  </Badge>
+                                )}
+                                {jump.isCutaway && (
+                                  <Badge variant="destructive">Cutaway</Badge>
+                                )}
+                              </div>
+                            </div>
+                            {jump.customerName && (
+                              <div className="mt-2 text-sm text-muted-foreground">
+                                Customer: {jump.customerName}
+                              </div>
                             )}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {jump.customerName && (
-                      <div className="mt-2 text-sm text-muted-foreground">
-                        Customer: {jump.customerName}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Link href={`/jumps/${jump.id}`}>
+                      <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="text-2xl font-bold text-primary">
+                                #{jump.jumpNumber}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Calendar className="h-4 w-4" />
+                                  {format(new Date(jump.date), "MMM d, yyyy")}
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <MapPin className="h-4 w-4" />
+                                  {jump.dropzone.name}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {isSigned && (
+                                <Badge variant="success" className="gap-1">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Signed
+                                </Badge>
+                              )}
+                              {jump.isWorkJump && (
+                                <Badge variant="secondary">
+                                  {jump.workJumpType}
+                                </Badge>
+                              )}
+                              {jump.isCutaway && (
+                                <Badge variant="destructive">Cutaway</Badge>
+                              )}
+                              {jump.freefallTime && (
+                                <span className="text-sm text-muted-foreground">
+                                  {secondsToHHMMSS(jump.freefallTime)} freefall
+                                </span>
+                              )}
+                              {jump.exitAltitude && jump.deploymentAltitude && jump.freefallTime && (
+                                <span className="text-sm text-muted-foreground">
+                                  {formatDistanceWithUnits(
+                                    calculateFreefallDistance(
+                                      jump.exitAltitude,
+                                      jump.deploymentAltitude,
+                                      jump.freefallTime,
+                                      unitPreference
+                                    ),
+                                    unitPreference
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {jump.customerName && (
+                            <div className="mt-2 text-sm text-muted-foreground">
+                              Customer: {jump.customerName}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
           {/* Load More Section */}
@@ -214,6 +355,29 @@ export default function JumpsPage() {
               </p>
             </div>
           )}
+
+          {/* Floating Sign Selected Button */}
+          {signatureMode && selectedJumps.size > 0 && (
+            <div className="fixed bottom-20 left-0 right-0 flex justify-center z-40 px-4">
+              <Button
+                size="lg"
+                className="shadow-lg"
+                onClick={() => setShowSignatureModal(true)}
+              >
+                <PenTool className="h-4 w-4 mr-2" />
+                Sign Selected ({selectedJumps.size})
+              </Button>
+            </div>
+          )}
+
+          {/* Bulk Signature Modal */}
+          <BulkSignatureModal
+            open={showSignatureModal}
+            onOpenChange={setShowSignatureModal}
+            onConfirm={handleBulkSign}
+            loading={signing}
+            jumpCount={selectedJumps.size}
+          />
         </>
       )}
     </div>

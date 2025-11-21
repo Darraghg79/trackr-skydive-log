@@ -18,6 +18,7 @@ interface UninvoicedJump {
   customerName: string | null
   hasHandcam: boolean
   canInvoiceHandcam: boolean
+  canInvoiceBaseJump: boolean
 }
 
 interface Dropzone {
@@ -112,12 +113,14 @@ export default function DropzoneInvoicePage() {
     let itemCount = 0
 
     jumps.forEach((jump) => {
-      // Base jump
-      subtotal += getRateForJumpType(jump.workJumpType)
-      itemCount++
+      // Base jump - only if it can be invoiced
+      if (jump.canInvoiceBaseJump) {
+        subtotal += getRateForJumpType(jump.workJumpType)
+        itemCount++
+      }
 
-      // Handcam
-      if (jump.hasHandcam && jump.canInvoiceHandcam) {
+      // Handcam - only if it can be invoiced
+      if (jump.canInvoiceHandcam) {
         subtotal += Number(dropzone.rateHandcam || 0)
         itemCount++
       }
@@ -146,19 +149,21 @@ export default function DropzoneInvoicePage() {
       const lineItems: any[] = []
 
       jumps.forEach((jump) => {
-        // Add base jump line item
-        const baseRate = getRateForJumpType(jump.workJumpType)
-        lineItems.push({
-          jumpId: jump.id,
-          itemType: "BASE_JUMP",
-          workJumpType: jump.workJumpType,
-          quantity: 1,
-          unitPrice: baseRate,
-          lineTotal: baseRate,
-        })
+        // Add base jump line item - only if it can be invoiced
+        if (jump.canInvoiceBaseJump) {
+          const baseRate = getRateForJumpType(jump.workJumpType)
+          lineItems.push({
+            jumpId: jump.id,
+            itemType: "BASE_JUMP",
+            workJumpType: jump.workJumpType,
+            quantity: 1,
+            unitPrice: baseRate,
+            lineTotal: baseRate,
+          })
+        }
 
-        // Add handcam line item if applicable
-        if (jump.hasHandcam && jump.canInvoiceHandcam) {
+        // Add handcam line item - only if it can be invoiced
+        if (jump.canInvoiceHandcam) {
           const handcamRate = Number(dropzone.rateHandcam || 0)
           lineItems.push({
             jumpId: jump.id,
@@ -329,17 +334,25 @@ export default function DropzoneInvoicePage() {
                   </div>
 
                   <div className="space-y-2 pl-4 border-l-2 border-muted">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <Check className="h-4 w-4 text-green-600" />
-                        <span>Base jump</span>
+                    {jump.canInvoiceBaseJump ? (
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <Check className="h-4 w-4 text-green-600" />
+                          <span>{jump.workJumpType}</span>
+                        </div>
+                        <span className="font-medium">
+                          {baseRate.toFixed(2)} {dropzone.currency}
+                        </span>
                       </div>
-                      <span className="font-medium">
-                        {baseRate.toFixed(2)} {dropzone.currency}
-                      </span>
-                    </div>
+                    ) : (
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs">(Already invoiced)</span>
+                        </div>
+                      </div>
+                    )}
 
-                    {jump.hasHandcam && jump.canInvoiceHandcam && (
+                    {jump.canInvoiceHandcam && (
                       <div className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
                           <Check className="h-4 w-4 text-green-600" />

@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
           aircraft: { select: { id: true, name: true } },
           jumpType: { select: { id: true, name: true } },
           rig: { select: { id: true, name: true } },
+          signatures: { select: { id: true } },
         },
       }),
       prisma.jump.count({ where }),

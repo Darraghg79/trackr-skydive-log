@@ -74,32 +74,35 @@ export async function GET(request: NextRequest) {
       orderBy: { date: 'desc' },
     })
 
-    // Filter to only uninvoiced jumps
-    // A jump is uninvoiced if it has no BASE_JUMP line items
-    const uninvoicedJumps = jumps.filter(jump => {
-      const hasBaseJumpInvoice = jump.invoiceLineItems.some(
-        item => item.itemType === 'BASE_JUMP'
-      )
-      return !hasBaseJumpInvoice
-    })
+    // Filter jumps that have uninvoiced items
+    // A jump can appear if:
+    // 1. It has no BASE_JUMP line item (completely uninvoiced)
+    // 2. OR it has handcam but no HANDCAM_ADDON line item (handcam needs invoicing)
+    const jumpsWithInvoiceInfo = jumps
+      .map(jump => {
+        const hasBaseJumpInvoice = jump.invoiceLineItems.some(
+          item => item.itemType === 'BASE_JUMP'
+        )
+        const hasHandcamInvoice = jump.invoiceLineItems.some(
+          item => item.itemType === 'HANDCAM_ADDON'
+        )
 
-    // For each jump, determine if handcam can be invoiced separately
-    const jumpsWithInvoiceInfo = uninvoicedJumps.map(jump => {
-      const hasHandcamInvoice = jump.invoiceLineItems.some(
-        item => item.itemType === 'HANDCAM_ADDON'
-      )
-
-      return {
-        id: jump.id,
-        jumpNumber: jump.jumpNumber,
-        date: jump.date,
-        workJumpType: jump.workJumpType,
-        customerName: jump.customerName,
-        hasHandcam: jump.hasHandcam,
-        canInvoiceHandcam: jump.hasHandcam && !hasHandcamInvoice,
-        dropzone: jump.dropzone,
-      }
-    })
+        return {
+          id: jump.id,
+          jumpNumber: jump.jumpNumber,
+          date: jump.date,
+          workJumpType: jump.workJumpType,
+          customerName: jump.customerName,
+          hasHandcam: jump.hasHandcam,
+          canInvoiceHandcam: jump.hasHandcam && !hasHandcamInvoice,
+          canInvoiceBaseJump: !hasBaseJumpInvoice,
+          dropzone: jump.dropzone,
+        }
+      })
+      .filter(jump => {
+        // Include if base jump can be invoiced OR handcam can be invoiced
+        return jump.canInvoiceBaseJump || jump.canInvoiceHandcam
+      })
 
     return NextResponse.json({
       data: jumpsWithInvoiceInfo,

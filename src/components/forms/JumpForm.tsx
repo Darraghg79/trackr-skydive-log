@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,6 +32,8 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
   const [jumpTypes, setJumpTypes] = useState<any[]>([])
   const [aircrafts, setAircrafts] = useState<any[]>([])
   const [userProfile, setUserProfile] = useState<any>(null)
+  const [unitPreference, setUnitPreference] = useState<"METRIC" | "IMPERIAL">("IMPERIAL")
+  const manuallyEditedFreefallTimeRef = useRef(false)
 
   const [formData, setFormData] = useState({
     jumpNumber: initialData?.jumpNumber || 1,
@@ -91,6 +93,14 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
       setAircrafts(acData.data || [])
       setUserProfile(userData)
 
+      // Set unit preference from user profile
+      if (userData?.unitPreference) {
+        setUnitPreference(userData.unitPreference)
+        console.log("✓ Unit preference loaded:", userData.unitPreference)
+      } else {
+        console.log("⚠ No unit preference found, using default: IMPERIAL")
+      }
+
       if (!initialData && userData?.currentJumpNumber) {
         setFormData((prev) => ({
           ...prev,
@@ -106,6 +116,67 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
       })
     }
   }
+
+  // Calculate freefall time based on exit and deployment altitudes
+  const calculateFreefallTime = (
+    exitAlt: number,
+    deployAlt: number,
+    unit: "IMPERIAL" | "METRIC"
+  ): number => {
+    const threshold = unit === "IMPERIAL" ? 1000 : 305
+    const freefallDistance = exitAlt - deployAlt
+
+    console.log("[Freefall Calc]", { exitAlt, deployAlt, freefallDistance, threshold, unit })
+
+    if (freefallDistance <= 0) return 0
+    if (freefallDistance <= threshold) return 10
+
+    const remainingDistance = freefallDistance - threshold
+    const additionalIntervals = Math.floor(remainingDistance / threshold)
+    const result = 10 + additionalIntervals * 5
+
+    console.log("[Freefall Calc] Result:", result, "seconds")
+    return result
+  }
+
+  // Auto-calculate freefall time when altitudes change
+  useEffect(() => {
+    const exitAlt = formData.exitAltitude
+      ? parseInt(formData.exitAltitude.toString())
+      : 0
+    const deployAlt = formData.deploymentAltitude
+      ? parseInt(formData.deploymentAltitude.toString())
+      : 0
+
+    console.log("[Auto-calc] Altitude changed:", {
+      exitAlt,
+      deployAlt,
+      unitPreference,
+      currentFreefallTime: formData.freefallTime,
+      manuallyEdited: manuallyEditedFreefallTimeRef.current
+    })
+
+    if (exitAlt && deployAlt && exitAlt > deployAlt) {
+      const calculatedSeconds = calculateFreefallTime(
+        exitAlt,
+        deployAlt,
+        unitPreference
+      )
+      const calculatedTime = secondsToHHMMSS(calculatedSeconds)
+
+      console.log("[Auto-calc] Calculated time:", calculatedTime)
+
+      // Only auto-update if the user hasn't manually edited the field
+      if (!manuallyEditedFreefallTimeRef.current) {
+        console.log("[Auto-calc] Setting freefall time to:", calculatedTime)
+        setFormData((prev) => ({ ...prev, freefallTime: calculatedTime }))
+      } else {
+        console.log("[Auto-calc] Skipping auto-update - user manually edited field")
+      }
+    } else {
+      console.log("[Auto-calc] Conditions not met for calculation")
+    }
+  }, [formData.exitAltitude, formData.deploymentAltitude, unitPreference])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -298,13 +369,15 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
             id="freefallTime"
             type="text"
             value={formData.freefallTime}
-            onChange={(e) =>
+            onChange={(e) => {
+              console.log("[Manual Edit] User manually edited freefall time")
+              manuallyEditedFreefallTimeRef.current = true
               setFormData({ ...formData, freefallTime: e.target.value })
-            }
+            }}
             placeholder="00:00:45 or 01:23 or 60"
           />
-          <p className="text-sm text-muted-foreground">
-            Enter as HH:MM:SS, MM:SS, or seconds
+          <p className="text-xs text-muted-foreground">
+            Auto-calculated based on altitudes (you can override). Enter as HH:MM:SS, MM:SS, or seconds
           </p>
         </div>
       </div>

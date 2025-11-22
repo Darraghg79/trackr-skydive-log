@@ -174,8 +174,12 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
             type="date"
             value={formData.date}
             onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            max={new Date().toISOString().split("T")[0]}
             required
           />
+          <p className="text-xs text-muted-foreground">
+            Cannot log jumps in the future
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -334,7 +338,12 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
             <Select
               value={formData.workJumpType}
               onValueChange={(value) =>
-                setFormData({ ...formData, workJumpType: value })
+                setFormData({
+                  ...formData,
+                  workJumpType: value,
+                  // Reset handcam if switching away from TANDEM
+                  hasHandcam: value === "TANDEM" ? formData.hasHandcam : false
+                })
               }
             >
               <SelectTrigger>
@@ -360,16 +369,19 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
             />
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="hasHandcam"
-              checked={formData.hasHandcam}
-              onCheckedChange={(checked) =>
-                setFormData({ ...formData, hasHandcam: checked as boolean })
-              }
-            />
-            <Label htmlFor="hasHandcam">Has Handcam</Label>
-          </div>
+          {/* Only show handcam for tandem jumps */}
+          {formData.workJumpType === "TANDEM" && (
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="hasHandcam"
+                checked={formData.hasHandcam}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, hasHandcam: checked as boolean })
+                }
+              />
+              <Label htmlFor="hasHandcam">Has Handcam</Label>
+            </div>
+          )}
         </div>
       )}
 

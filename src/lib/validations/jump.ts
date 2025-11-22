@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const JumpCreateSchema = z.object({
   jumpNumber: z.number().int().min(1),
-  date: z.coerce.date(),
+  date: z.coerce.date().max(new Date(), "Cannot log jumps in the future"),
   dropzoneId: z.string().uuid(),
   aircraftId: z.string().uuid().optional(),
   jumpTypeId: z.string().uuid().optional(),

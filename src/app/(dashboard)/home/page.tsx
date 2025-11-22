@@ -9,7 +9,6 @@ import { OnboardingBanner } from "@/components/shared/OnboardingBanner"
 import { Plane, MapPin, TrendingUp, Calendar, Plus } from "lucide-react"
 import { format } from "date-fns"
 import { secondsToHHMMSS, secondsToReadable } from "@/lib/utils/timeFormat"
-import { calculateFreefallDistance, formatDistanceWithUnits } from "@/lib/utils/distanceFormat"
 import { UnitPreference } from "@prisma/client"
 
 
@@ -194,19 +193,6 @@ export default function DashboardPage() {
                     <div className="text-sm font-medium text-muted-foreground">
                       {jump.jumpType?.name || "N/A"}
                     </div>
-                    {jump.exitAltitude && jump.deploymentAltitude && jump.freefallTime && (
-                      <div className="text-xs text-muted-foreground">
-                        {formatDistanceWithUnits(
-                          calculateFreefallDistance(
-                            jump.exitAltitude,
-                            jump.deploymentAltitude,
-                            jump.freefallTime,
-                            stats.unitPreference
-                          ),
-                          stats.unitPreference
-                        )}
-                      </div>
-                    )}
                   </div>
                 </Link>
               ))}

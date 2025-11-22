@@ -11,9 +11,6 @@ import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { useToast } from "@/hooks/useToast"
 import { Plus, Plane, Calendar, MapPin, Loader2, PenTool, CheckCircle2 } from "lucide-react"
 import { format } from "date-fns"
-import { secondsToHHMMSS } from "@/lib/utils/timeFormat"
-import { calculateFreefallDistance, formatDistanceWithUnits } from "@/lib/utils/distanceFormat"
-import { UnitPreference } from "@prisma/client"
 import { BulkSignatureModal } from "@/components/jumps/BulkSignatureModal"
 
 
@@ -39,7 +36,6 @@ export default function JumpsPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [total, setTotal] = useState(0)
   const [hasMore, setHasMore] = useState(false)
-  const [unitPreference, setUnitPreference] = useState<UnitPreference>("IMPERIAL")
   const [signatureMode, setSignatureMode] = useState(false)
   const [selectedJumps, setSelectedJumps] = useState<Set<string>>(new Set())
   const [showSignatureModal, setShowSignatureModal] = useState(false)
@@ -66,7 +62,6 @@ export default function JumpsPage() {
       setJumps(jumpsData.data || [])
       setTotal(jumpsData.pagination?.total || 0)
       setHasMore(jumpsData.pagination?.hasMore || false)
-      setUnitPreference(userData.unitPreference || "IMPERIAL")
     } catch (error) {
       console.error("Failed to fetch data:", error)
     } finally {
@@ -286,24 +281,6 @@ export default function JumpsPage() {
                               )}
                               {jump.isCutaway && (
                                 <Badge variant="destructive">Cutaway</Badge>
-                              )}
-                              {jump.freefallTime && (
-                                <span className="text-sm text-muted-foreground">
-                                  {secondsToHHMMSS(jump.freefallTime)} freefall
-                                </span>
-                              )}
-                              {jump.exitAltitude && jump.deploymentAltitude && jump.freefallTime && (
-                                <span className="text-sm text-muted-foreground">
-                                  {formatDistanceWithUnits(
-                                    calculateFreefallDistance(
-                                      jump.exitAltitude,
-                                      jump.deploymentAltitude,
-                                      jump.freefallTime,
-                                      unitPreference
-                                    ),
-                                    unitPreference
-                                  )}
-                                </span>
                               )}
                             </div>
                           </div>

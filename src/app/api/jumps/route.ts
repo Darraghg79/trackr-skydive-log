@@ -15,7 +15,9 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100)
+    // Allow higher limits for reporting purposes, but cap at 10000 to prevent abuse
+    const requestedLimit = parseInt(searchParams.get('limit') || '50')
+    const limit = Math.min(requestedLimit, 10000)
     const offset = parseInt(searchParams.get('offset') || '0')
     const orderBy = searchParams.get('orderBy') || 'jumpNumber'
     const order = searchParams.get('order') || 'desc'

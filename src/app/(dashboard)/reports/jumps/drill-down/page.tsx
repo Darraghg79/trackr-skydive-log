@@ -9,6 +9,7 @@ import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { ArrowLeft, Calendar, Plane, ChevronRight, MapPin, Package } from "lucide-react"
 
 interface GroupData {
+  id?: string // Optional ID for gear components
   name: string
   count: number
 }
@@ -91,26 +92,28 @@ export default function JumpsDrillDownPage() {
           </p>
         ) : (
           <div className="space-y-2">
-            {items.map((item) => (
-              <Link
-                key={item.name}
-                href={`/reports/jumps/list?${filterType}=${encodeURIComponent(
-                  item.name
-                )}`}
-              >
-                <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
-                  <div className="flex items-center gap-3">
-                    <div className="font-medium">{item.name}</div>
+            {items.map((item) => {
+              // For gear items, link to stats page; for others, link to filtered list
+              const href = filterType === "gear" && item.id
+                ? `/reports/jumps/gear/${item.id}`
+                : `/reports/jumps/list?${filterType}=${encodeURIComponent(item.name)}`
+
+              return (
+                <Link key={item.id || item.name} href={href}>
+                  <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
+                    <div className="flex items-center gap-3">
+                      <div className="font-medium">{item.name}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        {item.count} {item.count === 1 ? "jump" : "jumps"}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      {item.count} {item.count === 1 ? "jump" : "jumps"}
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              )
+            })}
           </div>
         )}
       </CardContent>
@@ -194,7 +197,7 @@ export default function JumpsDrillDownPage() {
         />
 
         <GroupCard
-          title="By Gear/Rig"
+          title="By Gear"
           icon={Package}
           items={data.byGear}
           filterType="gear"

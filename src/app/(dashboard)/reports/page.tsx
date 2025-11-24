@@ -16,6 +16,7 @@ interface ReportsData {
   totalCutaways: number
   jumpsByMonth: { month: string; count: number }[]
   topDropzones: { name: string; count: number }[]
+  totalDropzonesVisited: number
   jumpTypeBreakdown: { name: string; count: number }[]
   recentActivity: {
     thisMonth: number
@@ -36,7 +37,8 @@ export default function ReportsPage() {
     try {
       const [userRes, jumpsRes] = await Promise.all([
         fetch("/api/user"),
-        fetch("/api/jumps"),
+        // Request all jumps for accurate reporting (max limit of 10000)
+        fetch("/api/jumps?limit=10000"),
       ])
 
       const [userData, jumpsData] = await Promise.all([
@@ -45,6 +47,7 @@ export default function ReportsPage() {
       ])
 
       const jumps = jumpsData.data || []
+      console.log("Reports page: Loaded", jumps.length, "jumps for statistics")
       const now = new Date()
       const currentMonth = now.getMonth()
       const currentYear = now.getFullYear()
@@ -78,6 +81,11 @@ export default function ReportsPage() {
         const dzName = j.dropzone?.name || "Unknown"
         dropzoneCounts[dzName] = (dropzoneCounts[dzName] || 0) + 1
       })
+
+      // Count total unique dropzones
+      const totalDropzonesVisited = Object.keys(dropzoneCounts).length
+
+      // Get top 5 for display
       const topDropzones = Object.entries(dropzoneCounts)
         .map(([name, count]) => ({ name, count: count as number }))
         .sort((a, b) => b.count - a.count)
@@ -99,6 +107,7 @@ export default function ReportsPage() {
         totalCutaways: userData.startingCutaways || 0,
         jumpsByMonth: [],
         topDropzones,
+        totalDropzonesVisited,
         jumpTypeBreakdown,
         recentActivity: {
           thisMonth: thisMonthJumps.length,
@@ -277,7 +286,7 @@ export default function ReportsPage() {
             </div>
             <div className="flex flex-col items-center p-4 border rounded-lg">
               <MapPin className="h-8 w-8 text-primary mb-2" />
-              <div className="text-2xl font-bold">{data?.topDropzones.length || 0}</div>
+              <div className="text-2xl font-bold">{data?.totalDropzonesVisited || 0}</div>
               <div className="text-sm text-muted-foreground text-center">Dropzones Visited</div>
             </div>
           </div>

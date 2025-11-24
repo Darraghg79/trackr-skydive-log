@@ -38,10 +38,19 @@ interface Jump {
   signatures?: Array<{ id: string }>
 }
 
+interface GearMetadata {
+  name: string
+  type: string
+  previousJumps: number
+  loggedJumps: number
+  totalJumps: number
+}
+
 function FilteredJumpsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [jumps, setJumps] = useState<Jump[]>([])
+  const [gearMetadata, setGearMetadata] = useState<GearMetadata | null>(null)
   const [loading, setLoading] = useState(true)
   const [showWorkJumpsOnly, setShowWorkJumpsOnly] = useState(false)
 
@@ -75,6 +84,7 @@ function FilteredJumpsContent() {
       const data = await res.json()
 
       setJumps(data.data || [])
+      setGearMetadata(data.gearMetadata || null)
     } catch (error) {
       console.error("Failed to fetch jumps:", error)
     } finally {
@@ -132,6 +142,32 @@ function FilteredJumpsContent() {
           </p>
         </div>
       </div>
+
+      {/* Gear Metadata Card (only shown when filtering by gear) */}
+      {gearMetadata && (
+        <Card className="bg-muted/30">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-medium">
+                  {gearMetadata.name} ({gearMetadata.type})
+                </div>
+                <div className="text-sm text-muted-foreground mt-1">
+                  Total: {gearMetadata.totalJumps} jumps
+                  <span className="mx-2">•</span>
+                  Logged: {gearMetadata.loggedJumps} jumps
+                  {gearMetadata.previousJumps > 0 && (
+                    <>
+                      <span className="mx-2">•</span>
+                      Previous: {gearMetadata.previousJumps} jumps
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Work Jump Toggle */}
       <div className="flex items-center gap-3 p-4 bg-muted/30 rounded-lg">

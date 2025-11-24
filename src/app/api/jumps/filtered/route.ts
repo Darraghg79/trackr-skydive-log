@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
     const aircraft = searchParams.get("aircraft")
     const gear = searchParams.get("gear")
 
+    console.log("Filtered jumps request:", { year, type, dropzone, aircraft, gear })
+
     // Build where clause for Prisma
     const where: any = { userId: user.id }
 
@@ -54,8 +56,16 @@ export async function GET(request: NextRequest) {
     }
 
     if (gear) {
-      where.rig = {
-        name: gear,
+      // Filter by gear component name (format: "Name (TYPE)")
+      // Extract the component name from the display format
+      const componentName = gear.replace(/\s*\([^)]*\)\s*$/, "").trim()
+      console.log("Filtering by gear component:", componentName)
+      where.gearComponents = {
+        some: {
+          gearComponent: {
+            name: componentName,
+          },
+        },
       }
     }
 
@@ -68,13 +78,56 @@ export async function GET(request: NextRequest) {
         jumpType: { select: { id: true, name: true } },
         rig: { select: { id: true, name: true } },
         signatures: { select: { id: true } },
+        gearComponents: {
+          include: {
+            gearComponent: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { jumpNumber: "desc" },
     })
 
+    console.log("Found jumps:", jumps.length)
+
+    // If filtering by gear, fetch the component's previousJumpCount
+    let gearMetadata = null
+    if (gear) {
+      const componentName = gear.replace(/\s*\([^)]*\)\s*$/, "").trim()
+      const gearComponent = await prisma.gearComponent.findFirst({
+        where: {
+          userId: user.id,
+          name: componentName,
+        },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          previousJumpCount: true,
+        },
+      })
+
+      if (gearComponent) {
+        gearMetadata = {
+          name: gearComponent.name,
+          type: gearComponent.type,
+          previousJumps: gearComponent.previousJumpCount,
+          loggedJumps: jumps.length,
+          totalJumps: jumps.length + gearComponent.previousJumpCount,
+        }
+        console.log("Gear metadata:", gearMetadata)
+      }
+    }
+
     return NextResponse.json({
       data: jumps,
       total: jumps.length,
+      gearMetadata,
     })
   } catch (error) {
     console.error("Error in filtered jumps route:", error)

@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/useToast"
 import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { Loader2 } from "lucide-react"
+import { format } from "date-fns"
 
 
 export default function ProfilePage() {
@@ -32,11 +33,14 @@ export default function ProfilePage() {
     startingFreefallTime: 0,
     startingCutaways: 0,
   })
+  const [auditLogs, setAuditLogs] = useState<any[]>([])
+  const [auditLoading, setAuditLoading] = useState(true)
 
   const { toast } = useToast()
 
   useEffect(() => {
     fetchProfile()
+    fetchAuditLogs()
   }, [])
 
   const fetchProfile = async () => {
@@ -60,6 +64,19 @@ export default function ProfilePage() {
     }
   }
 
+  const fetchAuditLogs = async () => {
+    try {
+      const res = await fetch("/api/audit-logs?limit=20")
+      if (!res.ok) throw new Error("Failed to fetch audit logs")
+      const data = await res.json()
+      setAuditLogs(data.data || [])
+    } catch (error) {
+      console.error("Failed to load audit logs:", error)
+    } finally {
+      setAuditLoading(false)
+    }
+  }
+
   const handleSave = async () => {
     setSaving(true)
     try {
@@ -78,6 +95,7 @@ export default function ProfilePage() {
 
       if (!res.ok) throw new Error("Failed to save")
       toast({ title: "Profile updated" })
+      fetchAuditLogs()
     } catch (error) {
       toast({ title: "Failed to save profile", variant: "destructive" })
     } finally {
@@ -184,6 +202,32 @@ export default function ProfilePage() {
               Your next jump will be logged as jump {profile.currentJumpNumber + 1}
             </p>
           </div>
+
+          {!auditLoading && (
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Jump Number History</Label>
+              <div className="rounded-md border border-muted bg-muted/30 p-3 space-y-2 max-h-48 overflow-y-auto">
+                {auditLogs.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    No changes recorded
+                  </p>
+                ) : (
+                  auditLogs.map((log) => (
+                    <div key={log.id} className="text-xs text-muted-foreground">
+                      Changed from <span className="font-medium">{log.previousNumber}</span> to{" "}
+                      <span className="font-medium">{log.newNumber}</span> on{" "}
+                      {format(new Date(log.changedAt), "MMM d, yyyy 'at' h:mm a")}
+                      {log.reason && (
+                        <>
+                          , Reason: <span className="italic">{log.reason}</span>
+                        </>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="startingFreefallTime">

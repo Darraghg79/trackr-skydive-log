@@ -134,22 +134,13 @@ export default function InvoiceDetailPage() {
               </Button>
             )}
             {invoice.status === "SENT" && (
-              <>
-                <Button
-                  className="w-full"
-                  variant="default"
-                  onClick={() => updateStatus("PAID")}
-                >
-                  Mark as Paid
-                </Button>
-                <Button
-                  className="w-full"
-                  variant="outline"
-                  onClick={() => updateStatus("OPEN")}
-                >
-                  Reopen Invoice
-                </Button>
-              </>
+              <Button
+                className="w-full"
+                variant="default"
+                onClick={() => updateStatus("PAID")}
+              >
+                Mark as Paid
+              </Button>
             )}
             {invoice.status === "PAID" && (
               <div className="text-center text-sm text-muted-foreground py-2">
@@ -164,73 +155,93 @@ export default function InvoiceDetailPage() {
         </Card>
       </div>
 
+      {invoice.status === "OPEN" && (
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-blue-900">
+              <strong>This invoice automatically includes all uninvoiced work jumps for {invoice.dropzone.name}.</strong>
+              {" "}New jumps will appear here automatically until you mark the invoice as sent.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Line Items</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2">Jump</th>
-                  <th className="text-left py-2">Type</th>
-                  <th className="text-right py-2">Qty</th>
-                  <th className="text-right py-2">Unit Price</th>
-                  <th className="text-right py-2">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoice.lineItems.map((item: any) => (
-                  <tr key={item.id} className="border-b">
-                    <td className="py-2">
-                      #{item.jump.jumpNumber} -{" "}
-                      {format(new Date(item.jump.date), "MMM d")}
-                    </td>
-                    <td className="py-2">
-                      {item.workJumpType}
-                      {item.itemType === "HANDCAM_ADDON" && " (Handcam)"}
-                    </td>
-                    <td className="text-right py-2">{item.quantity}</td>
-                    <td className="text-right py-2">
-                      {parseFloat(item.unitPrice).toFixed(2)}
-                    </td>
-                    <td className="text-right py-2">
-                      {parseFloat(item.lineTotal).toFixed(2)}
-                    </td>
+          {invoice.lineItems.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No work jumps found for this dropzone.</p>
+              {invoice.status === "OPEN" && (
+                <p className="text-sm mt-2">New work jumps will appear here automatically.</p>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2">Jump</th>
+                    <th className="text-left py-2">Type</th>
+                    <th className="text-right py-2">Qty</th>
+                    <th className="text-right py-2">Unit Price</th>
+                    <th className="text-right py-2">Total</th>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t">
-                  <td colSpan={4} className="text-right py-2 font-medium">
-                    Subtotal
-                  </td>
-                  <td className="text-right py-2">
-                    {parseFloat(invoice.subtotal).toFixed(2)}
-                  </td>
-                </tr>
-                {invoice.taxAmount && (
-                  <tr>
+                </thead>
+                <tbody>
+                  {invoice.lineItems.map((item: any) => (
+                    <tr key={item.id} className="border-b">
+                      <td className="py-2">
+                        #{item.jump.jumpNumber} -{" "}
+                        {format(new Date(item.jump.date), "MMM d")}
+                      </td>
+                      <td className="py-2">
+                        {item.workJumpType}
+                        {item.itemType === "HANDCAM_ADDON" && " (Handcam)"}
+                      </td>
+                      <td className="text-right py-2">{item.quantity}</td>
+                      <td className="text-right py-2">
+                        {parseFloat(item.unitPrice).toFixed(2)}
+                      </td>
+                      <td className="text-right py-2">
+                        {parseFloat(item.lineTotal).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                  </tbody>
+                <tfoot>
+                  <tr className="border-t">
                     <td colSpan={4} className="text-right py-2 font-medium">
-                      Tax ({invoice.taxRate}%)
+                      Subtotal
                     </td>
                     <td className="text-right py-2">
-                      {parseFloat(invoice.taxAmount).toFixed(2)}
+                      {parseFloat(invoice.subtotal).toFixed(2)}
                     </td>
                   </tr>
-                )}
-                <tr className="font-bold">
-                  <td colSpan={4} className="text-right py-2">
-                    Total
-                  </td>
-                  <td className="text-right py-2">
-                    {parseFloat(invoice.total).toFixed(2)} {invoice.currency}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                  {invoice.taxAmount && (
+                    <tr>
+                      <td colSpan={4} className="text-right py-2 font-medium">
+                        Tax ({invoice.taxRate}%)
+                      </td>
+                      <td className="text-right py-2">
+                        {parseFloat(invoice.taxAmount).toFixed(2)}
+                      </td>
+                    </tr>
+                  )}
+                  <tr className="font-bold">
+                    <td colSpan={4} className="text-right py-2">
+                      Total
+                    </td>
+                    <td className="text-right py-2">
+                      {parseFloat(invoice.total).toFixed(2)} {invoice.currency}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

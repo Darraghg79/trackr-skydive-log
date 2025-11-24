@@ -140,21 +140,20 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="country">Country *</Label>
+          <Label htmlFor="country">Country</Label>
           <Input
             id="country"
             value={formData.country}
             onChange={(e) =>
               setFormData({ ...formData, country: e.target.value })
             }
-            required
             className={errors.country ? "border-red-500" : ""}
           />
           {errors.country && <p className="text-sm text-red-500">{errors.country}</p>}
         </div>
 
         <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="address">Address *</Label>
+          <Label htmlFor="address">Address</Label>
           <Textarea
             id="address"
             value={formData.address}
@@ -162,14 +161,13 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
               setFormData({ ...formData, address: e.target.value })
             }
             rows={3}
-            required
             className={errors.address ? "border-red-500" : ""}
           />
           {errors.address && <p className="text-sm text-red-500">{errors.address}</p>}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="currency">Currency *</Label>
+          <Label htmlFor="currency">Currency</Label>
           <Input
             id="currency"
             value={formData.currency}
@@ -178,7 +176,6 @@ export function DropzoneForm({ initialData, dropzoneId }: DropzoneFormProps) {
             }
             maxLength={3}
             placeholder="USD, EUR, GBP, etc."
-            required
             className={errors.currency ? "border-red-500" : ""}
           />
           {errors.currency && <p className="text-sm text-red-500">{errors.currency}</p>}

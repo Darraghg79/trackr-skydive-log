@@ -79,10 +79,7 @@ export async function POST(request: NextRequest) {
     }
 
     const item = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // BUSINESS RULE 1: Auto-add to existing OPEN invoice for the same dropzone
-      let invoice: any
-      let isAddingToExisting = false
-
+      // BUSINESS RULE 1: Prevent creating a new OPEN invoice if one already exists for this dropzone
       if (invoiceData.status === 'OPEN') {
         const existingOpenInvoice = await tx.invoice.findFirst({
           where: {
@@ -93,10 +90,11 @@ export async function POST(request: NextRequest) {
         })
 
         if (existingOpenInvoice) {
-          invoice = existingOpenInvoice
-          isAddingToExisting = true
+          throw new Error('An open invoice already exists for this dropzone. Please send or delete it before creating a new one.')
         }
       }
+
+      let invoice: any
 
       // BUSINESS RULE 2: Verify jumps haven't been invoiced already
       // Extract unique jump IDs (a jump can have both BASE_JUMP and HANDCAM_ADDON line items)
@@ -257,53 +255,48 @@ export async function POST(request: NextRequest) {
       console.log('All', jumps.length, 'jumps validated successfully')
       console.log('=== INVOICE VALIDATION DEBUG END ===\n')
 
-      // Create new invoice or use existing OPEN invoice
-      if (!invoice) {
-        invoice = await tx.invoice.create({
-          data: { ...invoiceData, userId: user.id },
-        })
+      // Create new invoice
+      invoice = await tx.invoice.create({
+        data: { ...invoiceData, userId: user.id },
+      })
 
-        // Update user's invoice starting number only for new invoices
-        await tx.user.update({
-          where: { id: user.id },
-          data: {
-            invoiceStartingNumber: {
-              increment: 1,
-            },
+      // Update user's invoice starting number
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          invoiceStartingNumber: {
+            increment: 1,
           },
-        })
-      }
+        },
+      })
 
-      // Add line items to the invoice
-      if (lineItems.length > 0) {
+      // For OPEN invoices, don't create line items yet - they'll be generated dynamically
+      // For SENT/PAID invoices, create line items now
+      if (invoiceData.status !== 'OPEN' && lineItems.length > 0) {
         await tx.invoiceLineItem.createMany({
           data: lineItems.map((li) => ({
             ...li,
             invoiceId: invoice.id,
           })),
         })
+
+        // Recalculate invoice totals
+        const newSubtotal = lineItems.reduce(
+          (sum, item) => sum + Number(item.lineTotal),
+          0
+        )
+        const newTaxAmount = (newSubtotal * Number(invoiceData.taxRate || 0)) / 100
+        const newTotal = newSubtotal + newTaxAmount
+
+        await tx.invoice.update({
+          where: { id: invoice.id },
+          data: {
+            subtotal: newSubtotal,
+            taxAmount: newTaxAmount,
+            total: newTotal,
+          },
+        })
       }
-
-      // Recalculate invoice totals
-      const allLineItems = await tx.invoiceLineItem.findMany({
-        where: { invoiceId: invoice.id },
-      })
-
-      const newSubtotal = allLineItems.reduce(
-        (sum, item) => sum + Number(item.lineTotal),
-        0
-      )
-      const newTaxAmount = (newSubtotal * Number(invoiceData.taxRate || 0)) / 100
-      const newTotal = newSubtotal + newTaxAmount
-
-      await tx.invoice.update({
-        where: { id: invoice.id },
-        data: {
-          subtotal: newSubtotal,
-          taxAmount: newTaxAmount,
-          total: newTotal,
-        },
-      })
 
       return tx.invoice.findUnique({
         where: { id: invoice.id },

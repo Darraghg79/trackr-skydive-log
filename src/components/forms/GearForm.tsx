@@ -88,7 +88,15 @@ export function GearForm({ initialData, gearId }: GearFormProps) {
           <Select
             value={formData.type}
             onValueChange={(value) =>
-              setFormData({ ...formData, type: value })
+              setFormData({
+                ...formData,
+                type: value,
+                // Clear service date if switching away from RESERVE or AAD
+                serviceDate:
+                  value === "RESERVE" || value === "AAD"
+                    ? formData.serviceDate
+                    : "",
+              })
             }
           >
             <SelectTrigger>
@@ -166,17 +174,25 @@ export function GearForm({ initialData, gearId }: GearFormProps) {
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="serviceDate">Next Service Date</Label>
-          <Input
-            id="serviceDate"
-            type="date"
-            value={formData.serviceDate}
-            onChange={(e) =>
-              setFormData({ ...formData, serviceDate: e.target.value })
-            }
-          />
-        </div>
+        {/* Only show service date for Reserve and AAD */}
+        {(formData.type === "RESERVE" || formData.type === "AAD") && (
+          <div className="space-y-2">
+            <Label htmlFor="serviceDate">Next Service Date</Label>
+            <Input
+              id="serviceDate"
+              type="date"
+              value={formData.serviceDate}
+              onChange={(e) =>
+                setFormData({ ...formData, serviceDate: e.target.value })
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              {formData.type === "RESERVE"
+                ? "Next repack due"
+                : "Next AAD service due"}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center space-x-2">

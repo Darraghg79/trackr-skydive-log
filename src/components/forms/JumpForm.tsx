@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/useToast"
-import { Loader2, CheckCircle2 } from "lucide-react"
+import { Loader2, CheckCircle2, Package } from "lucide-react"
 import { secondsToHHMMSS, parseHHMMSSToSeconds, isValidHHMMSS } from "@/lib/utils/timeFormat"
 import { format } from "date-fns"
 import { Card, CardContent } from "@/components/ui/card"
@@ -29,6 +29,7 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
   const [loading, setLoading] = useState(false)
   const [dropzones, setDropzones] = useState<any[]>([])
   const [rigs, setRigs] = useState<any[]>([])
+  const [gearComponents, setGearComponents] = useState<any[]>([])
   const [jumpTypes, setJumpTypes] = useState<any[]>([])
   const [aircrafts, setAircrafts] = useState<any[]>([])
   const [userProfile, setUserProfile] = useState<any>(null)
@@ -44,6 +45,7 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
     aircraftId: initialData?.aircraftId || "",
     jumpTypeId: initialData?.jumpTypeId || "",
     rigId: initialData?.rigId || "",
+    gearComponentIds: initialData?.gearComponents?.map((gc: any) => gc.gearComponentId) || [],
     exitAltitude: initialData?.exitAltitude || "",
     deploymentAltitude: initialData?.deploymentAltitude || "",
     freefallTime: initialData?.freefallTime ? secondsToHHMMSS(initialData.freefallTime) : "",
@@ -65,17 +67,19 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
   const fetchOptions = async () => {
     try {
       const timestamp = Date.now()
-      const [dzRes, rigRes, jtRes, acRes, userRes] = await Promise.all([
+      const [dzRes, rigRes, gearRes, jtRes, acRes, userRes] = await Promise.all([
         fetch(`/api/dropzones?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/rigs?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/gear-components?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/user-jump-types?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/user-aircrafts?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/user?t=${timestamp}`, { cache: 'no-store' }),
       ])
 
-      const [dzData, rigData, jtData, acData, userData] = await Promise.all([
+      const [dzData, rigData, gearData, jtData, acData, userData] = await Promise.all([
         dzRes.json(),
         rigRes.json(),
+        gearRes.json(),
         jtRes.json(),
         acRes.json(),
         userRes.json(),
@@ -83,12 +87,14 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
 
       console.log("Fetched dropzones for form:", dzData.data?.length || 0, "items")
       console.log("Fetched rigs for form:", rigData.data?.length || 0, "items")
+      console.log("Fetched gear components for form:", gearData.data?.length || 0, "items")
       console.log("Fetched jump types for form:", jtData.data?.length || 0, "items")
       console.log("Fetched aircrafts for form:", acData.data?.length || 0, "items")
       console.log("User data:", userData?.currentJumpNumber)
 
       setDropzones(dzData.data || [])
       setRigs(rigData.data || [])
+      setGearComponents(gearData.data || [])
       setJumpTypes(jtData.data || [])
       setAircrafts(acData.data || [])
       setUserProfile(userData)
@@ -178,6 +184,15 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
     }
   }, [formData.exitAltitude, formData.deploymentAltitude, unitPreference])
 
+  const toggleGearComponent = (id: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      gearComponentIds: prev.gearComponentIds.includes(id)
+        ? prev.gearComponentIds.filter((cid: string) => cid !== id)
+        : [...prev.gearComponentIds, id],
+    }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -198,6 +213,7 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
         aircraftId: formData.aircraftId || undefined,
         jumpTypeId: formData.jumpTypeId || undefined,
         rigId: formData.rigId || undefined,
+        gearComponentIds: formData.gearComponentIds.length > 0 ? formData.gearComponentIds : undefined,
         workJumpType: formData.isWorkJump ? formData.workJumpType : undefined,
         customerName: formData.isWorkJump ? formData.customerName : undefined,
         hasHandcam: formData.isWorkJump ? formData.hasHandcam : false,
@@ -225,6 +241,14 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
     } finally {
       setLoading(false)
     }
+  }
+
+  const typeLabels: Record<string, string> = {
+    MAIN: "Main",
+    RESERVE: "Reserve",
+    AAD: "AAD",
+    CONTAINER: "Container",
+    OTHER: "Other",
   }
 
   return (
@@ -381,6 +405,36 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
           </p>
         </div>
       </div>
+
+      {/* Individual Gear Components */}
+      {gearComponents.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <Label className="mb-3 block">Individual Gear Components</Label>
+            <p className="text-xs text-muted-foreground mb-3">
+              Select individual components if not using a complete rig, or to track specific components
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {gearComponents.map((component) => (
+                <div key={component.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`component-${component.id}`}
+                    checked={formData.gearComponentIds.includes(component.id)}
+                    onCheckedChange={() => toggleGearComponent(component.id)}
+                  />
+                  <Label htmlFor={`component-${component.id}`} className="font-normal flex items-center gap-2">
+                    <Package className="h-3 w-3" />
+                    <span className="font-medium">{component.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({typeLabels[component.type] || component.type})
+                    </span>
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex items-center space-x-2">
         <Checkbox

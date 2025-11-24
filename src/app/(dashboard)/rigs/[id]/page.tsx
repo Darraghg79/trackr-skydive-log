@@ -30,7 +30,7 @@ export default function RigDetailPage() {
       setRig(data)
     } catch (error) {
       console.error("Failed to fetch rig:", error)
-      router.push("/rigs")
+      router.push("/gear?tab=rigs")
     } finally {
       setLoading(false)
     }
@@ -43,7 +43,7 @@ export default function RigDetailPage() {
         method: "DELETE",
       })
       if (!res.ok) throw new Error("Failed to delete")
-      router.push("/rigs")
+      router.push("/gear?tab=rigs")
       router.refresh()
     } catch (error) {
       console.error("Error deleting rig:", error)

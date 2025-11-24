@@ -69,7 +69,7 @@ export function RigForm({ initialData, onSuccess }: RigFormProps) {
       if (!res.ok) throw new Error("Failed to save rig")
 
       onSuccess?.()
-      router.push("/rigs")
+      router.push("/gear?tab=rigs")
       router.refresh()
     } catch (error) {
       console.error("Error saving rig:", error)

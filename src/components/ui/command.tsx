@@ -20,8 +20,10 @@ Command.displayName = "Command"
 
 const CommandInput = React.forwardRef<
   HTMLInputElement,
-  React.InputHTMLAttributes<HTMLInputElement>
->(({ className, ...props }, ref) => (
+  React.InputHTMLAttributes<HTMLInputElement> & {
+    onValueChange?: (value: string) => void
+  }
+>(({ className, onValueChange, ...props }, ref) => (
   <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
     <input
       ref={ref}
@@ -29,6 +31,10 @@ const CommandInput = React.forwardRef<
         "flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
+      onChange={(e) => {
+        onValueChange?.(e.target.value)
+        props.onChange?.(e)
+      }}
       {...props}
     />
   </div>

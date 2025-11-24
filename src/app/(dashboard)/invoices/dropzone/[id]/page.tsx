@@ -7,8 +7,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { useToast } from "@/hooks/useToast"
-import { ArrowLeft, Calendar, DollarSign, Check } from "lucide-react"
+import { ArrowLeft, Calendar, Check } from "lucide-react"
 import { format } from "date-fns"
+import { formatCurrency } from "@/lib/utils/currencyFormat"
 
 interface UninvoicedJump {
   id: string
@@ -341,7 +342,7 @@ export default function DropzoneInvoicePage() {
                           <span>{jump.workJumpType}</span>
                         </div>
                         <span className="font-medium">
-                          {baseRate.toFixed(2)} {dropzone.currency}
+                          {formatCurrency(baseRate, dropzone.currency)}
                         </span>
                       </div>
                     ) : (
@@ -359,7 +360,7 @@ export default function DropzoneInvoicePage() {
                           <span>Handcam</span>
                         </div>
                         <span className="font-medium">
-                          {handcamRate.toFixed(2)} {dropzone.currency}
+                          {formatCurrency(handcamRate, dropzone.currency)}
                         </span>
                       </div>
                     )}
@@ -382,7 +383,7 @@ export default function DropzoneInvoicePage() {
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Subtotal:</span>
               <span className="font-medium">
-                {subtotal.toFixed(2)} {dropzone.currency}
+                {formatCurrency(subtotal, dropzone.currency)}
               </span>
             </div>
             {taxRate !== undefined && taxRate > 0 && (
@@ -391,15 +392,14 @@ export default function DropzoneInvoicePage() {
                   Tax ({taxRate.toFixed(1)}%):
                 </span>
                 <span className="font-medium">
-                  {tax.toFixed(2)} {dropzone.currency}
+                  {formatCurrency(tax, dropzone.currency)}
                 </span>
               </div>
             )}
             <div className="flex justify-between text-lg font-bold pt-2 border-t">
               <span>Total:</span>
-              <span className="flex items-center gap-1">
-                <DollarSign className="h-4 w-4" />
-                {total.toFixed(2)} {dropzone.currency}
+              <span>
+                {formatCurrency(total, dropzone.currency)}
               </span>
             </div>
 
@@ -426,7 +426,7 @@ export default function DropzoneInvoicePage() {
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Subtotal:</span>
             <span className="font-medium">
-              {subtotal.toFixed(2)} {dropzone.currency}
+              {formatCurrency(subtotal, dropzone.currency)}
             </span>
           </div>
           {taxRate !== undefined && taxRate > 0 && (
@@ -435,15 +435,14 @@ export default function DropzoneInvoicePage() {
                 Tax ({taxRate.toFixed(1)}%):
               </span>
               <span className="font-medium">
-                {tax.toFixed(2)} {dropzone.currency}
+                {formatCurrency(tax, dropzone.currency)}
               </span>
             </div>
           )}
           <div className="flex justify-between text-lg font-bold pt-2 border-t">
             <span>Total:</span>
-            <span className="flex items-center gap-1">
-              <DollarSign className="h-4 w-4" />
-              {total.toFixed(2)} {dropzone.currency}
+            <span>
+              {formatCurrency(total, dropzone.currency)}
             </span>
           </div>
 

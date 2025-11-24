@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Combobox } from "@/components/ui/combobox"
 import { useToast } from "@/hooks/useToast"
 import { Loader2, CheckCircle2, Package } from "lucide-react"
 import { secondsToHHMMSS, parseHHMMSSToSeconds, isValidHHMMSS } from "@/lib/utils/timeFormat"
@@ -279,23 +280,16 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
 
         <div className="space-y-2">
           <Label htmlFor="dropzoneId">Dropzone *</Label>
-          <Select
+          <Combobox
+            options={dropzones.map((dz) => ({ value: dz.id, label: dz.name }))}
             value={formData.dropzoneId}
             onValueChange={(value) =>
               setFormData({ ...formData, dropzoneId: value })
             }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select dropzone" />
-            </SelectTrigger>
-            <SelectContent>
-              {dropzones.map((dz) => (
-                <SelectItem key={dz.id} value={dz.id}>
-                  {dz.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="Select dropzone"
+            searchPlaceholder="Search dropzones..."
+            emptyText="No dropzones found."
+          />
         </div>
 
         <div className="space-y-2">

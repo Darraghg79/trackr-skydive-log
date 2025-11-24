@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/useToast"
 import { ArrowLeft, Download, Send } from "lucide-react"
 import { format } from "date-fns"
+import { formatCurrency } from "@/lib/utils/currencyFormat"
 
 export default function InvoiceDetailPage() {
   const params = useParams()
@@ -203,10 +204,10 @@ export default function InvoiceDetailPage() {
                       </td>
                       <td className="text-right py-2">{item.quantity}</td>
                       <td className="text-right py-2">
-                        {parseFloat(item.unitPrice).toFixed(2)}
+                        {formatCurrency(item.unitPrice, invoice.currency)}
                       </td>
                       <td className="text-right py-2">
-                        {parseFloat(item.lineTotal).toFixed(2)}
+                        {formatCurrency(item.lineTotal, invoice.currency)}
                       </td>
                     </tr>
                   ))}
@@ -217,7 +218,7 @@ export default function InvoiceDetailPage() {
                       Subtotal
                     </td>
                     <td className="text-right py-2">
-                      {parseFloat(invoice.subtotal).toFixed(2)}
+                      {formatCurrency(invoice.subtotal, invoice.currency)}
                     </td>
                   </tr>
                   {invoice.taxAmount && (
@@ -226,7 +227,7 @@ export default function InvoiceDetailPage() {
                         Tax ({invoice.taxRate}%)
                       </td>
                       <td className="text-right py-2">
-                        {parseFloat(invoice.taxAmount).toFixed(2)}
+                        {formatCurrency(invoice.taxAmount, invoice.currency)}
                       </td>
                     </tr>
                   )}
@@ -235,7 +236,7 @@ export default function InvoiceDetailPage() {
                       Total
                     </td>
                     <td className="text-right py-2">
-                      {parseFloat(invoice.total).toFixed(2)} {invoice.currency}
+                      {formatCurrency(invoice.total, invoice.currency)}
                     </td>
                   </tr>
                 </tfoot>

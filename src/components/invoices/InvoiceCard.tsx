@@ -3,8 +3,9 @@
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Calendar, DollarSign, ChevronRight } from "lucide-react"
+import { MapPin, Calendar, ChevronRight } from "lucide-react"
 import { format } from "date-fns"
+import { formatCurrency } from "@/lib/utils/currencyFormat"
 
 interface InvoiceCardProps {
   id: string
@@ -56,11 +57,9 @@ export function InvoiceCard({
             </div>
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <div className="flex items-center gap-1 font-semibold">
-                  <DollarSign className="h-4 w-4" />
-                  <span>{parseFloat(total.toString()).toFixed(2)}</span>
+                <div className="font-semibold">
+                  {formatCurrency(total, currency)}
                 </div>
-                <div className="text-xs text-muted-foreground">{currency}</div>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </div>

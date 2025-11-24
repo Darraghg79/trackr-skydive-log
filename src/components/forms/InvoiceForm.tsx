@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Combobox } from "@/components/ui/combobox"
 import { Loader2, Plus, Trash2 } from "lucide-react"
 
 interface InvoiceFormProps {
@@ -71,24 +72,19 @@ export function InvoiceForm({ initialData, onSuccess }: InvoiceFormProps) {
         <CardContent className="space-y-4">
           <div>
             <Label htmlFor="dropzoneId">Dropzone *</Label>
-            <Select
+            <Combobox
+              options={dropzones.map((dz) => ({
+                value: dz.id,
+                label: `${dz.name} (${dz.currency})`,
+              }))}
               value={formData.dropzoneId}
               onValueChange={(value) =>
                 setFormData({ ...formData, dropzoneId: value })
               }
-              required
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select dropzone" />
-              </SelectTrigger>
-              <SelectContent>
-                {dropzones.map((dz) => (
-                  <SelectItem key={dz.id} value={dz.id}>
-                    {dz.name} ({dz.currency})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Select dropzone"
+              searchPlaceholder="Search dropzones..."
+              emptyText="No dropzones found."
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
@@ -38,7 +38,7 @@ interface Jump {
   signatures?: Array<{ id: string }>
 }
 
-export default function FilteredJumpsListPage() {
+function FilteredJumpsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [jumps, setJumps] = useState<Jump[]>([])
@@ -228,5 +228,13 @@ export default function FilteredJumpsListPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function FilteredJumpsListPage() {
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <FilteredJumpsContent />
+    </Suspense>
   )
 }

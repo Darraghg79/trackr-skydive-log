@@ -1,24 +1,48 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/useToast"
-import { Upload, FileText, AlertCircle, CheckCircle } from "lucide-react"
+import { Upload, FileText, AlertCircle, CheckCircle, Info } from "lucide-react"
 
 export const dynamic = 'force-dynamic'
+
+type UnitPreference = "METRIC" | "IMPERIAL"
 
 export default function ImportJumpsPage() {
   const [file, setFile] = useState<File | null>(null)
   const [overwrite, setOverwrite] = useState(false)
+  const [csvAltitudeUnit, setCsvAltitudeUnit] = useState<UnitPreference>("IMPERIAL")
+  const [userUnitPreference, setUserUnitPreference] = useState<UnitPreference>("IMPERIAL")
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState<{ success: boolean; message: string; imported?: number; updated?: number } | null>(null)
   const router = useRouter()
   const { toast } = useToast()
+
+  // Fetch user's unit preference
+  useEffect(() => {
+    const fetchUserPreference = async () => {
+      try {
+        const res = await fetch("/api/user")
+        if (res.ok) {
+          const userData = await res.json()
+          if (userData.unitPreference) {
+            setUserUnitPreference(userData.unitPreference)
+            setCsvAltitudeUnit(userData.unitPreference) // Default to user's preference
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch user preference:", error)
+      }
+    }
+    fetchUserPreference()
+  }, [])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -68,11 +92,11 @@ export default function ImportJumpsPage() {
         throw new Error("No valid jump records found in file")
       }
 
-      // Send to API
+      // Send to API with CSV unit information
       const res = await fetch("/api/jumps/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jumps, overwrite }),
+        body: JSON.stringify({ jumps, overwrite, csvAltitudeUnit }),
       })
 
       if (!res.ok) {
@@ -148,6 +172,60 @@ export default function ImportJumpsPage() {
             )}
           </div>
 
+          {/* Unit Settings */}
+          <Card className="bg-muted/30">
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex items-start gap-2">
+                <Info className="h-5 w-5 text-blue-500 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Unit Conversion</p>
+                  <p className="text-xs text-muted-foreground">
+                    Your account is set to <strong>{userUnitPreference}</strong> units.
+                    Specify the units used in your CSV file, and values will be automatically converted if needed.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="csvAltitudeUnit">Altitude Units in CSV File</Label>
+                <Select
+                  value={csvAltitudeUnit}
+                  onValueChange={(value) => setCsvAltitudeUnit(value as UnitPreference)}
+                  disabled={importing}
+                >
+                  <SelectTrigger id="csvAltitudeUnit">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="IMPERIAL">Feet (Imperial)</SelectItem>
+                    <SelectItem value="METRIC">Meters (Metric)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {csvAltitudeUnit !== userUnitPreference && (
+                    <span className="text-amber-600 dark:text-amber-400">
+                      ⚠ Altitudes will be converted from {csvAltitudeUnit === "IMPERIAL" ? "feet" : "meters"} to {userUnitPreference === "IMPERIAL" ? "feet" : "meters"}
+                    </span>
+                  )}
+                  {csvAltitudeUnit === userUnitPreference && (
+                    <span className="text-green-600 dark:text-green-400">
+                      ✓ No conversion needed - units match your account settings
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Freefall Time</Label>
+                <div className="text-sm text-muted-foreground">
+                  Measured in <strong>seconds</strong> (duration of freefall, not distance)
+                  <br />
+                  <span className="text-xs">No conversion needed - always use seconds</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Overwrite Option */}
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -219,17 +297,52 @@ export default function ImportJumpsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Your CSV file should include the following columns:
+                Your CSV file should match this format with header row and data rows:
               </p>
-              <div className="text-xs font-mono bg-background p-3 rounded border overflow-x-auto">
-                jumpnumber,date,dropzone,aircraft,jumptype,exitaltitude,deploymentaltitude,freefalltime,notes
+
+              {/* Sample CSV */}
+              <div className="text-xs font-mono bg-background p-3 rounded border overflow-x-auto space-y-1">
+                <div className="text-muted-foreground">jumpnumber,date,dropzone,aircraft,jumptype,rig,exitaltitude,deploymentaltitude,freefalltime,iscutaway,workjump,workjumptype,customername,hashandcam,photourl,notes</div>
+                <div>1,2024-01-15,Skydive City,Cessna 182,Freefly,Vector 3,13000,4000,60,no,no,,,,,"Great jump!"</div>
+                <div>2,2024-01-16,Skydive City,Twin Otter,Tandem,Sigma Tandem,14000,5000,50,no,yes,Tandem,John Smith,yes,,</div>
+                <div>3,2024-01-17,Mile High DZ,Caravan,RW,Icon,12500,3500,55,no,no,,,,,"4-way formation"</div>
               </div>
-              <div className="text-sm space-y-1 text-muted-foreground">
-                <p><strong>Required:</strong> jumpnumber, date, dropzone</p>
-                <p><strong>Optional:</strong> aircraft, jumptype, exitaltitude, deploymentaltitude, freefalltime, notes</p>
-                <p><strong>Date format:</strong> YYYY-MM-DD (e.g., 2024-01-15)</p>
-                <p><strong>Auto-creation:</strong> Missing dropzones, aircraft, and jump types will be automatically created.</p>
-                <p><strong>Overwrite mode:</strong> Enable to update jumps with matching jump numbers (otherwise they'll be skipped).</p>
+
+              {/* Field Reference */}
+              <div className="text-sm space-y-2 text-muted-foreground">
+                <div>
+                  <p className="font-semibold text-foreground mb-1">Required Fields:</p>
+                  <ul className="list-disc list-inside space-y-0.5 ml-2">
+                    <li><strong>jumpnumber:</strong> Jump number (integer)</li>
+                    <li><strong>date:</strong> YYYY-MM-DD format (e.g., 2024-01-15)</li>
+                    <li><strong>dropzone:</strong> Dropzone name (will be auto-created if missing)</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p className="font-semibold text-foreground mb-1">Optional Fields:</p>
+                  <ul className="list-disc list-inside space-y-0.5 ml-2">
+                    <li><strong>aircraft:</strong> Aircraft name (auto-created if missing)</li>
+                    <li><strong>jumptype:</strong> Jump type/discipline (auto-created if missing)</li>
+                    <li><strong>rig:</strong> Rig name (must already exist, not auto-created)</li>
+                    <li><strong>exitaltitude:</strong> Exit altitude in feet or meters (specify units above)</li>
+                    <li><strong>deploymentaltitude:</strong> Deployment altitude in feet or meters</li>
+                    <li><strong>freefalltime:</strong> Freefall time in seconds</li>
+                    <li><strong>iscutaway:</strong> yes/no - was this a cutaway?</li>
+                    <li><strong>workjump:</strong> yes/no - marks as paid work jump (no invoice created)</li>
+                    <li><strong>workjumptype:</strong> Type of work jump (Tandem, Video, Coach, etc.)</li>
+                    <li><strong>customername:</strong> Customer name for work jumps</li>
+                    <li><strong>hashandcam:</strong> yes/no - did you use a handcam?</li>
+                    <li><strong>photourl:</strong> URL to jump photo/video</li>
+                    <li><strong>notes:</strong> Any additional notes</li>
+                  </ul>
+                </div>
+
+                <div className="pt-2 border-t">
+                  <p><strong>Auto-creation:</strong> Missing dropzones, aircraft, and jump types will be automatically created.</p>
+                  <p><strong>Overwrite mode:</strong> Enable above to update jumps with matching jump numbers (otherwise they'll be skipped).</p>
+                  <p><strong>Work jumps:</strong> Imported work jumps are counted in reports but do not generate invoices.</p>
+                </div>
               </div>
             </CardContent>
           </Card>

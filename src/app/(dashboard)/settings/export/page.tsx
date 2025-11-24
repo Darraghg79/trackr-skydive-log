@@ -15,7 +15,8 @@ export default function ExportPage() {
   const handleExportCSV = async () => {
     setExporting(true)
     try {
-      const res = await fetch("/api/jumps")
+      // Request all jumps for export (max limit of 10000)
+      const res = await fetch("/api/jumps?limit=10000")
       const data = await res.json()
 
       if (!data.data || data.data.length === 0) {
@@ -29,25 +30,24 @@ export default function ExportPage() {
 
       // Convert to CSV
       const jumps = data.data
+      console.log(`Exporting ${jumps.length} jumps`)
       const headers = [
-        "jumpNumber",
+        "jumpnumber",
         "date",
         "dropzone",
         "aircraft",
-        "jumpType",
+        "jumptype",
         "rig",
-        "exitAltitude",
-        "deploymentAltitude",
-        "freefallTime",
-        "isCutaway",
-        "isWorkJump",
-        "workJumpType",
-        "customerName",
-        "hasHandcam",
-        "photoUrl",
-        "notes",
-        "createdAt",
-        "updatedAt"
+        "exitaltitude",
+        "deploymentaltitude",
+        "freefalltime",
+        "iscutaway",
+        "workjump",
+        "workjumptype",
+        "customername",
+        "hashandcam",
+        "photourl",
+        "notes"
       ]
 
       const csvRows = [headers.join(",")]
@@ -63,15 +63,13 @@ export default function ExportPage() {
           jump.exitAltitude || "",
           jump.deploymentAltitude || "",
           jump.freefallTime || "",
-          jump.isCutaway ? "true" : "false",
-          jump.isWorkJump ? "true" : "false",
+          jump.isCutaway ? "yes" : "no",
+          jump.isWorkJump ? "yes" : "no",
           jump.workJumpType || "",
           `"${jump.customerName || ""}"`,
-          jump.hasHandcam ? "true" : "false",
+          jump.hasHandcam ? "yes" : "no",
           jump.photoUrl || "",
-          `"${(jump.notes || "").replace(/"/g, '""')}"`, // Escape quotes
-          jump.createdAt || "",
-          jump.updatedAt || ""
+          `"${(jump.notes || "").replace(/"/g, '""')}"` // Escape quotes
         ]
         csvRows.push(row.join(","))
       })

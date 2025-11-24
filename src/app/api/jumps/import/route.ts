@@ -2,6 +2,29 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { prisma } from "@/lib/prisma"
 
+// Unit conversion constants
+const FEET_TO_METERS = 0.3048
+const METERS_TO_FEET = 3.28084
+
+type UnitPreference = "METRIC" | "IMPERIAL"
+
+// Convert altitude based on source and target units
+function convertAltitude(
+  value: number,
+  fromUnit: UnitPreference,
+  toUnit: UnitPreference
+): number {
+  if (fromUnit === toUnit) return value
+
+  if (fromUnit === "IMPERIAL" && toUnit === "METRIC") {
+    // Feet to meters
+    return Math.round(value * FEET_TO_METERS)
+  } else {
+    // Meters to feet
+    return Math.round(value * METERS_TO_FEET)
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = createClient()
@@ -15,7 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { jumps, overwrite = false } = body
+    const { jumps, overwrite = false, csvAltitudeUnit = "IMPERIAL" } = body
 
     if (!Array.isArray(jumps) || jumps.length === 0) {
       return NextResponse.json(
@@ -44,6 +67,15 @@ export async function POST(req: NextRequest) {
     let imported = 0
     let updated = 0
     let maxJumpNumber = userRecord.currentJumpNumber - 1
+
+    // Log unit conversion info
+    if (csvAltitudeUnit !== userRecord.unitPreference) {
+      console.log(
+        `Converting altitudes from ${csvAltitudeUnit} to ${userRecord.unitPreference}`
+      )
+    } else {
+      console.log(`No altitude conversion needed - both use ${csvAltitudeUnit}`)
+    }
 
     for (const jump of jumps) {
       try {
@@ -121,6 +153,52 @@ export async function POST(req: NextRequest) {
           },
         })
 
+        // Parse altitude values and convert if needed
+        const rawExitAltitude = jump.exitaltitude || jump.exitAltitude
+        const rawDeploymentAltitude = jump.deploymentaltitude || jump.deploymentAltitude
+
+        const exitAltitude = rawExitAltitude
+          ? convertAltitude(
+              parseInt(rawExitAltitude),
+              csvAltitudeUnit as UnitPreference,
+              userRecord.unitPreference
+            )
+          : undefined
+
+        const deploymentAltitude = rawDeploymentAltitude
+          ? convertAltitude(
+              parseInt(rawDeploymentAltitude),
+              csvAltitudeUnit as UnitPreference,
+              userRecord.unitPreference
+            )
+          : undefined
+
+        // Parse boolean fields (yes/no, true/false, 1/0)
+        const parseBoolean = (value: any) => {
+          const val = (value || "").toString().toLowerCase()
+          return ["yes", "true", "1"].includes(val)
+        }
+
+        const isWorkJump = parseBoolean(jump.workjump || jump.workJump)
+        const isCutaway = parseBoolean(jump.iscutaway || jump.isCutaway)
+        const hasHandcam = parseBoolean(jump.hashandcam || jump.hasHandcam)
+
+        // Find or create rig if specified
+        const rigName = jump.rig
+        let rigId = null
+        if (rigName) {
+          const existingRig = await prisma.rig.findFirst({
+            where: {
+              userId: user.id,
+              name: rigName,
+            },
+          })
+          if (existingRig) {
+            rigId = existingRig.id
+          }
+          // Note: We don't auto-create rigs since they require component setup
+        }
+
         const jumpData = {
           userId: user.id,
           jumpNumber,
@@ -128,15 +206,18 @@ export async function POST(req: NextRequest) {
           dropzoneId,
           aircraftId: aircraftId || undefined,
           jumpTypeId: jumpTypeId || undefined,
-          exitAltitude: jump.exitaltitude || jump.exitAltitude
-            ? parseInt(jump.exitaltitude || jump.exitAltitude)
-            : undefined,
-          deploymentAltitude: jump.deploymentaltitude || jump.deploymentAltitude
-            ? parseInt(jump.deploymentaltitude || jump.deploymentAltitude)
-            : undefined,
+          rigId: rigId || undefined,
+          exitAltitude,
+          deploymentAltitude,
           freefallTime: jump.freefalltime || jump.freefallTime
             ? parseInt(jump.freefalltime || jump.freefallTime)
             : undefined,
+          isCutaway,
+          isWorkJump,
+          workJumpType: (jump.workjumptype || jump.workJumpType) || undefined,
+          customerName: (jump.customername || jump.customerName) || undefined,
+          hasHandcam,
+          photoUrl: (jump.photourl || jump.photoUrl) || undefined,
           notes: jump.notes || undefined,
         }
 

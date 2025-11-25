@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#3B82F6" rx="80"/>
+  <g fill="#ffffff">
+    <!-- Parachute canopy -->
+    <ellipse cx="256" cy="180" rx="120" ry="60" opacity="0.9"/>
+    <path d="M 136 180 Q 136 220 176 240 Q 216 260 256 260 Q 296 260 336 240 Q 376 220 376 180"
+          fill="none" stroke="#ffffff" stroke-width="4"/>
+
+    <!-- Parachute lines -->
+    <line x1="136" y1="180" x2="230" y2="310" stroke="#ffffff" stroke-width="3"/>
+    <line x1="196" y1="180" x2="242" y2="310" stroke="#ffffff" stroke-width="3"/>
+    <line x1="256" y1="180" x2="256" y2="310" stroke="#ffffff" stroke-width="3"/>
+    <line x1="316" y1="180" x2="270" y2="310" stroke="#ffffff" stroke-width="3"/>
+    <line x1="376" y1="180" x2="282" y2="310" stroke="#ffffff" stroke-width="3"/>
+
+    <!-- Person -->
+    <circle cx="256" cy="320" r="18" fill="#ffffff"/>
+    <line x1="256" y1="338" x2="256" y2="390" stroke="#ffffff" stroke-width="12"/>
+    <line x1="256" y1="350" x2="230" y2="375" stroke="#ffffff" stroke-width="10"/>
+    <line x1="256" y1="350" x2="282" y2="375" stroke="#ffffff" stroke-width="10"/>
+    <line x1="256" y1="390" x2="235" y2="425" stroke="#ffffff" stroke-width="10"/>
+    <line x1="256" y1="390" x2="277" y2="425" stroke="#ffffff" stroke-width="10"/>
+  </g>
+</svg>

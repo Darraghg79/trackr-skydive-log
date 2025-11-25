@@ -6,10 +6,22 @@ import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/useToast"
-import { ArrowLeft, Download, Send } from "lucide-react"
+import { ArrowLeft, Download, Send, Loader2, Eye, Mail } from "lucide-react"
 import { format } from "date-fns"
 import { formatCurrency } from "@/lib/utils/currencyFormat"
+import { pdf } from "@react-pdf/renderer"
+import { InvoicePDF } from "@/components/pdf/InvoicePDF"
 
 export default function InvoiceDetailPage() {
   const params = useParams()
@@ -17,6 +29,8 @@ export default function InvoiceDetailPage() {
   const { toast } = useToast()
   const [invoice, setInvoice] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [generatingPDF, setGeneratingPDF] = useState(false)
+  const [showSentDialog, setShowSentDialog] = useState(false)
 
   useEffect(() => {
     fetchInvoice()
@@ -48,6 +62,154 @@ export default function InvoiceDetailPage() {
       fetchInvoice()
     } catch (error) {
       toast({ title: "Failed to update status", variant: "destructive" })
+    }
+  }
+
+  const handleViewPDF = async () => {
+    if (!invoice) return
+
+    setGeneratingPDF(true)
+    try {
+      // Generate PDF
+      const blob = await pdf(<InvoicePDF invoice={invoice} />).toBlob()
+
+      // Create blob URL and open in new tab
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+
+      toast({
+        title: "PDF opened",
+        description: `Invoice ${invoice.invoiceNumber} opened in new tab`
+      })
+
+      // Clean up the URL after a delay to ensure the window has opened
+      setTimeout(() => URL.revokeObjectURL(url), 100)
+    } catch (error) {
+      console.error("PDF generation error:", error)
+      toast({
+        title: "Failed to generate PDF",
+        description: "There was an error creating the PDF file",
+        variant: "destructive"
+      })
+    } finally {
+      setGeneratingPDF(false)
+    }
+  }
+
+  const handleDownloadPDF = async () => {
+    if (!invoice) return
+
+    setGeneratingPDF(true)
+    try {
+      // Generate PDF
+      const blob = await pdf(<InvoicePDF invoice={invoice} />).toBlob()
+
+      // Create download link
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `Invoice-${invoice.invoiceNumber}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast({
+        title: "PDF downloaded successfully",
+        description: `Invoice ${invoice.invoiceNumber} has been downloaded`
+      })
+    } catch (error) {
+      console.error("PDF generation error:", error)
+      toast({
+        title: "Failed to generate PDF",
+        description: "There was an error creating the PDF file",
+        variant: "destructive"
+      })
+    } finally {
+      setGeneratingPDF(false)
+    }
+  }
+
+  const handleSendInvoice = async () => {
+    if (!invoice) return
+
+    // Check if dropzone has email
+    if (!invoice.dropzone.contactEmail) {
+      toast({
+        title: "No email address",
+        description: "This dropzone doesn't have a contact email set",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setGeneratingPDF(true)
+    try {
+      // Auto-download PDF first
+      const blob = await pdf(<InvoicePDF invoice={invoice} />).toBlob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `Invoice-${invoice.invoiceNumber}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      // Prepare email content
+      const companyName = invoice.user.brandingCompanyName || invoice.user.name || 'Skydiving Professional'
+      const subject = `Invoice ${invoice.invoiceNumber} - ${companyName}`
+
+      const emailBody = `Hi ${invoice.dropzone.contactName || 'there'},
+
+I hope this message finds you well. Please find attached Invoice ${invoice.invoiceNumber} for the skydiving work completed at ${invoice.dropzone.name}.
+
+Invoice Details:
+• Invoice Number: ${invoice.invoiceNumber}
+• Invoice Date: ${format(new Date(invoice.invoiceDate), 'MMMM d, yyyy')}
+${invoice.dueDate ? `• Due Date: ${format(new Date(invoice.dueDate), 'MMMM d, yyyy')}` : ''}
+• Total Amount: ${formatCurrency(invoice.total, invoice.currency)}
+• Total Work Jumps: ${invoice.lineItems.length}
+
+${invoice.user.remittanceDetails ? `Payment Details:\n${invoice.user.remittanceDetails}\n\n` : ''}Please let me know if you have any questions or need any additional information.
+
+Thank you for the opportunity to work with ${invoice.dropzone.name}!
+
+Best regards,
+${companyName}
+${invoice.user.phone ? `Phone: ${invoice.user.phone}` : ''}`
+
+      // Create mailto link
+      const mailtoLink = `mailto:${invoice.dropzone.contactEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBody)}`
+
+      // Open email client
+      window.location.href = mailtoLink
+
+      // Show dialog to mark as sent
+      setShowSentDialog(true)
+
+      toast({
+        title: "Email client opened",
+        description: "Please attach the downloaded PDF to your email"
+      })
+    } catch (error) {
+      console.error("Email preparation error:", error)
+      toast({
+        title: "Failed to prepare email",
+        description: "There was an error preparing the email",
+        variant: "destructive"
+      })
+    } finally {
+      setGeneratingPDF(false)
+    }
+  }
+
+  const handleConfirmSent = async () => {
+    try {
+      await updateStatus("SENT")
+      setShowSentDialog(false)
+    } catch (error) {
+      // Error already handled by updateStatus
     }
   }
 
@@ -117,6 +279,14 @@ export default function InvoiceDetailPage() {
               <span className="text-muted-foreground">Currency</span>
               <span>{invoice.currency}</span>
             </div>
+            {invoice.sentDate && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Sent On</span>
+                <span>
+                  {format(new Date(invoice.sentDate), "MMM d, yyyy")}
+                </span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -126,13 +296,33 @@ export default function InvoiceDetailPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {invoice.status === "OPEN" && (
-              <Button
-                className="w-full"
-                onClick={() => updateStatus("SENT")}
-              >
-                <Send className="h-4 w-4 mr-2" />
-                Mark as Sent
-              </Button>
+              <>
+                <Button
+                  className="w-full"
+                  onClick={handleSendInvoice}
+                  disabled={generatingPDF}
+                >
+                  {generatingPDF ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Preparing...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="h-4 w-4 mr-2" />
+                      Send Invoice
+                    </>
+                  )}
+                </Button>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => updateStatus("SENT")}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Mark as Sent
+                </Button>
+              </>
             )}
             {invoice.status === "SENT" && (
               <Button
@@ -148,9 +338,41 @@ export default function InvoiceDetailPage() {
                 Invoice has been paid
               </div>
             )}
-            <Button variant="outline" className="w-full" disabled>
-              <Download className="h-4 w-4 mr-2" />
-              Download PDF (Coming Soon)
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleViewPDF}
+              disabled={generatingPDF || (invoice.status !== "OPEN" && invoice.status !== "SENT")}
+            >
+              {generatingPDF ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generating PDF...
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4 mr-2" />
+                  View PDF
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleDownloadPDF}
+              disabled={generatingPDF || (invoice.status !== "OPEN" && invoice.status !== "SENT")}
+            >
+              {generatingPDF ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generating PDF...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>
@@ -245,6 +467,21 @@ export default function InvoiceDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={showSentDialog} onOpenChange={setShowSentDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark Invoice as Sent?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Have you sent the invoice to {invoice.dropzone.name}? This will mark the invoice as SENT and prevent further changes to the line items.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, Keep as Open</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSent}>Yes, Mark as Sent</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

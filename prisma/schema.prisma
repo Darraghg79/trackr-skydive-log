@@ -59,6 +59,7 @@ model User {
   address                 String?        @db.Text
   phone                   String?
   taxRegistrationNumber   String?
+  remittanceDetails       String?        @db.Text
   licenseNumber           String?
   unitPreference          UnitPreference @default(IMPERIAL)
   currentJumpNumber       Int            @default(1)
@@ -296,6 +297,7 @@ model Invoice {
   status        InvoiceStatus @default(OPEN)
   notes         String?       @db.Text
   pdfUrl        String?
+  sentDate      DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 

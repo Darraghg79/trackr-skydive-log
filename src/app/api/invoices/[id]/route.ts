@@ -23,6 +23,17 @@ export async function GET(
       where: { id, userId: user.id },
       include: {
         dropzone: true,
+        user: {
+          select: {
+            name: true,
+            address: true,
+            phone: true,
+            taxRegistrationNumber: true,
+            remittanceDetails: true,
+            brandingCompanyName: true,
+            brandingInvoiceFooter: true,
+          },
+        },
         lineItems: {
           include: {
             jump: {
@@ -274,6 +285,7 @@ export async function PATCH(
             subtotal,
             taxAmount,
             total,
+            sentDate: new Date(),
           },
           include: {
             dropzone: { select: { id: true, name: true } },
@@ -286,9 +298,15 @@ export async function PATCH(
     }
 
     // For other updates, just update the invoice fields
+    // If status is being set to SENT (from any other status), set sentDate
+    const updateData: any = { ...validated }
+    if (validated.status === 'SENT' && existing.status !== 'SENT') {
+      updateData.sentDate = new Date()
+    }
+
     const item = await prisma.invoice.update({
       where: { id },
-      data: validated,
+      data: updateData,
       include: {
         dropzone: { select: { id: true, name: true } },
         lineItems: { include: { jump: { select: { id: true, jumpNumber: true, date: true } } } },

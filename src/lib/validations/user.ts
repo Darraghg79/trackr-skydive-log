@@ -5,6 +5,7 @@ export const UserProfileUpdateSchema = z.object({
   address: z.string().max(500).optional(),
   phone: z.string().max(50).optional(),
   taxRegistrationNumber: z.string().max(50).optional(),
+  remittanceDetails: z.string().max(1000).optional(),
   licenseNumber: z.string().max(50).optional(),
   unitPreference: z.enum(['METRIC', 'IMPERIAL']).optional(),
   currentJumpNumber: z.number().int().min(1).optional(),

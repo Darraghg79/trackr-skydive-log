@@ -32,6 +32,8 @@ export default function ProfilePage() {
     currentJumpNumber: 1,
     startingFreefallTime: 0,
     startingCutaways: 0,
+    taxRegistrationNumber: "",
+    remittanceDetails: "",
   })
   const [auditLogs, setAuditLogs] = useState<any[]>([])
   const [auditLoading, setAuditLoading] = useState(true)
@@ -56,6 +58,8 @@ export default function ProfilePage() {
         currentJumpNumber: data.currentJumpNumber || 1,
         startingFreefallTime: data.startingFreefallTime || 0,
         startingCutaways: data.startingCutaways || 0,
+        taxRegistrationNumber: data.taxRegistrationNumber || "",
+        remittanceDetails: data.remittanceDetails || "",
       })
     } catch (error) {
       toast({ title: "Failed to load profile", variant: "destructive" })
@@ -178,6 +182,44 @@ export default function ProfilePage() {
                 <SelectItem value="METRIC">Metric (m)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Invoice Information (Optional)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="taxRegistrationNumber">Tax Registration Number</Label>
+            <Input
+              id="taxRegistrationNumber"
+              value={profile.taxRegistrationNumber}
+              onChange={(e) =>
+                setProfile({ ...profile, taxRegistrationNumber: e.target.value })
+              }
+              placeholder="e.g., VAT123456789"
+            />
+            <p className="text-xs text-muted-foreground">
+              Optional - for invoice generation if required
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="remittanceDetails">Remittance Details</Label>
+            <Textarea
+              id="remittanceDetails"
+              value={profile.remittanceDetails}
+              onChange={(e) =>
+                setProfile({ ...profile, remittanceDetails: e.target.value })
+              }
+              rows={4}
+              placeholder="e.g., Bank: XYZ Bank, Account: 12345678, Sort Code: 12-34-56"
+            />
+            <p className="text-xs text-muted-foreground">
+              Optional - bank details for payment if required
+            </p>
           </div>
         </CardContent>
       </Card>

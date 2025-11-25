@@ -50,11 +50,30 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Transform to include count as uninvoicedCount
+    // Get OPEN invoices for these dropzones
+    const openInvoices = await prisma.invoice.findMany({
+      where: {
+        userId: user.id,
+        status: 'OPEN',
+        dropzoneId: {
+          in: dropzones.map(dz => dz.id)
+        }
+      },
+      select: {
+        id: true,
+        dropzoneId: true,
+      }
+    })
+
+    // Create a map of dropzoneId to OPEN invoice ID
+    const openInvoiceMap = new Map(openInvoices.map(inv => [inv.dropzoneId, inv.id]))
+
+    // Transform to include count as uninvoicedCount and openInvoiceId
     const dropzonesWithCount = dropzones.map(dz => ({
       id: dz.id,
       name: dz.name,
-      uninvoicedCount: dz._count.jumps
+      uninvoicedCount: dz._count.jumps,
+      openInvoiceId: openInvoiceMap.get(dz.id) || null,
     }))
 
     return NextResponse.json({

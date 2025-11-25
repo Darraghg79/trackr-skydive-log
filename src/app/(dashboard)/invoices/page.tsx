@@ -13,6 +13,7 @@ interface Dropzone {
   id: string
   name: string
   uninvoicedCount: number
+  openInvoiceId: string | null
 }
 
 interface Invoice {
@@ -79,6 +80,7 @@ export default function InvoicesPage() {
               id={dropzone.id}
               name={dropzone.name}
               uninvoicedCount={dropzone.uninvoicedCount}
+              openInvoiceId={dropzone.openInvoiceId}
             />
           ))}
         </div>

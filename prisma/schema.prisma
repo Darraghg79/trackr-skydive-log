@@ -298,6 +298,8 @@ model Invoice {
   notes         String?       @db.Text
   pdfUrl        String?
   sentDate      DateTime?
+  shareableUrl  String?       @unique
+  shareableUrlExpiry DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 

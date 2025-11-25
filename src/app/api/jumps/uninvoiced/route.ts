@@ -96,7 +96,16 @@ export async function GET(request: NextRequest) {
           hasHandcam: jump.hasHandcam,
           canInvoiceHandcam: jump.hasHandcam && !hasHandcamInvoice,
           canInvoiceBaseJump: !hasBaseJumpInvoice,
-          dropzone: jump.dropzone,
+          // Convert Decimal fields to numbers in the embedded dropzone object
+          dropzone: {
+            ...jump.dropzone,
+            rateAFF: jump.dropzone.rateAFF ? Number(jump.dropzone.rateAFF) : null,
+            rateTandem: jump.dropzone.rateTandem ? Number(jump.dropzone.rateTandem) : null,
+            rateCamera: jump.dropzone.rateCamera ? Number(jump.dropzone.rateCamera) : null,
+            rateCoach: jump.dropzone.rateCoach ? Number(jump.dropzone.rateCoach) : null,
+            rateHandcam: jump.dropzone.rateHandcam ? Number(jump.dropzone.rateHandcam) : null,
+            taxRate: jump.dropzone.taxRate ? Number(jump.dropzone.taxRate) : null,
+          },
         }
       })
       .filter(jump => {
@@ -104,9 +113,20 @@ export async function GET(request: NextRequest) {
         return jump.canInvoiceBaseJump || jump.canInvoiceHandcam
       })
 
+    // Convert Decimal fields to numbers for JSON serialization
+    const dropzoneWithNumbers = {
+      ...dropzone,
+      rateAFF: dropzone.rateAFF ? Number(dropzone.rateAFF) : null,
+      rateTandem: dropzone.rateTandem ? Number(dropzone.rateTandem) : null,
+      rateCamera: dropzone.rateCamera ? Number(dropzone.rateCamera) : null,
+      rateCoach: dropzone.rateCoach ? Number(dropzone.rateCoach) : null,
+      rateHandcam: dropzone.rateHandcam ? Number(dropzone.rateHandcam) : null,
+      taxRate: dropzone.taxRate ? Number(dropzone.taxRate) : null,
+    }
+
     return NextResponse.json({
       data: jumpsWithInvoiceInfo,
-      dropzone,
+      dropzone: dropzoneWithNumbers,
     })
   } catch (error) {
     console.error('GET /api/jumps/uninvoiced error:', error)

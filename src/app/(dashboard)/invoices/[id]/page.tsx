@@ -145,7 +145,18 @@ export default function InvoiceDetailPage() {
 
     setGeneratingPDF(true)
     try {
-      // Auto-download PDF first
+      // Generate/get shareable URL first
+      const shareResponse = await fetch(`/api/invoices/${params.id}/share`, {
+        method: 'POST',
+      })
+
+      if (!shareResponse.ok) {
+        throw new Error('Failed to generate shareable link')
+      }
+
+      const { shareableUrl } = await shareResponse.json()
+
+      // Auto-download PDF
       const blob = await pdf(<InvoicePDF invoice={invoice} />).toBlob()
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -156,24 +167,20 @@ export default function InvoiceDetailPage() {
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
 
-      // Prepare email content
+      // Prepare email content with shareable link
       const companyName = invoice.user.brandingCompanyName || invoice.user.name || 'Skydiving Professional'
       const subject = `Invoice ${invoice.invoiceNumber} - ${companyName}`
 
-      const emailBody = `Hi ${invoice.dropzone.contactName || 'there'},
+      const emailBody = `Dear ${invoice.dropzone.contactName || 'Accounts'},
 
-I hope this message finds you well. Please find attached Invoice ${invoice.invoiceNumber} for the skydiving work completed at ${invoice.dropzone.name}.
+Please find enclosed invoice ${invoice.invoiceNumber} for skydiving services.
 
-Invoice Details:
-• Invoice Number: ${invoice.invoiceNumber}
-• Invoice Date: ${format(new Date(invoice.invoiceDate), 'MMMM d, yyyy')}
-${invoice.dueDate ? `• Due Date: ${format(new Date(invoice.dueDate), 'MMMM d, yyyy')}` : ''}
-• Total Amount: ${formatCurrency(invoice.total, invoice.currency)}
-• Total Work Jumps: ${invoice.lineItems.length}
+View Invoice: ${shareableUrl}
 
-${invoice.user.remittanceDetails ? `Payment Details:\n${invoice.user.remittanceDetails}\n\n` : ''}Please let me know if you have any questions or need any additional information.
+Amount Due: ${invoice.currency} ${formatCurrency(invoice.total, invoice.currency).replace(/[^\d.,]/g, '')}
+${invoice.dueDate ? `Due Date: ${format(new Date(invoice.dueDate), 'MMMM d, yyyy')}` : 'Due Date: Upon receipt'}
 
-Thank you for the opportunity to work with ${invoice.dropzone.name}!
+${invoice.user.remittanceDetails ? `Payment Details:\n${invoice.user.remittanceDetails}\n\n` : ''}Thank you for your business.
 
 Best regards,
 ${companyName}
@@ -190,7 +197,7 @@ ${invoice.user.phone ? `Phone: ${invoice.user.phone}` : ''}`
 
       toast({
         title: "Email client opened",
-        description: "Please attach the downloaded PDF to your email"
+        description: "Invoice link included in email (PDF also downloaded)"
       })
     } catch (error) {
       console.error("Email preparation error:", error)
@@ -443,7 +450,7 @@ ${invoice.user.phone ? `Phone: ${invoice.user.phone}` : ''}`
                       {formatCurrency(invoice.subtotal, invoice.currency)}
                     </td>
                   </tr>
-                  {invoice.taxAmount && (
+                  {invoice.taxAmount > 0 && (
                     <tr>
                       <td colSpan={4} className="text-right py-2 font-medium">
                         Tax ({invoice.taxRate}%)

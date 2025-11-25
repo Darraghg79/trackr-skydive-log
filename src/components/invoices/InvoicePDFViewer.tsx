@@ -1,7 +1,7 @@
 "use client"
 
 import { PDFViewer } from '@react-pdf/renderer'
-import { InvoicePDF } from './InvoicePDF'
+import { InvoicePDF } from '@/components/pdf/InvoicePDF'
 import { useEffect, useState } from 'react'
 
 interface InvoicePDFViewerProps {

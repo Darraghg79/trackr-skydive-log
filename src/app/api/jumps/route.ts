@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     const isWorkJump = searchParams.get('isWorkJump')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
+    const search = searchParams.get('search')
 
     const where: any = { userId: user.id }
     if (dropzoneId) where.dropzoneId = dropzoneId
@@ -35,6 +36,37 @@ export async function GET(request: NextRequest) {
       where.date = {}
       if (startDate) where.date.gte = new Date(startDate)
       if (endDate) where.date.lte = new Date(endDate)
+    }
+
+    // Add search filter
+    if (search && search.trim()) {
+      const searchTerm = search.trim()
+      const searchNumber = parseInt(searchTerm)
+
+      where.OR = [
+        // Search jump number (exact match)
+        ...(isNaN(searchNumber) ? [] : [{ jumpNumber: searchNumber }]),
+
+        // Search notes (case-insensitive partial match)
+        ...(searchTerm ? [{ notes: { contains: searchTerm, mode: Prisma.QueryMode.insensitive } }] : []),
+
+        // Search customer name (case-insensitive partial match)
+        ...(searchTerm ? [{ customerName: { contains: searchTerm, mode: Prisma.QueryMode.insensitive } }] : []),
+
+        // Search work jump type (exact match on enum - uppercase)
+        ...(searchTerm.toUpperCase() === 'AFF' || searchTerm.toUpperCase() === 'TANDEM' ||
+            searchTerm.toUpperCase() === 'CAMERA' || searchTerm.toUpperCase() === 'COACH'
+            ? [{ workJumpType: searchTerm.toUpperCase() as any }] : []),
+
+        // Search dropzone name (case-insensitive partial match)
+        ...(searchTerm ? [{ dropzone: { name: { contains: searchTerm, mode: Prisma.QueryMode.insensitive } } }] : []),
+
+        // Search aircraft name (case-insensitive partial match)
+        ...(searchTerm ? [{ aircraft: { name: { contains: searchTerm, mode: Prisma.QueryMode.insensitive } } }] : []),
+
+        // Search jump type name (case-insensitive partial match)
+        ...(searchTerm ? [{ jumpType: { name: { contains: searchTerm, mode: Prisma.QueryMode.insensitive } } }] : []),
+      ]
     }
 
     const [items, total] = await Promise.all([

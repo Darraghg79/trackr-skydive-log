@@ -1,15 +1,16 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { useToast } from "@/hooks/useToast"
-import { Plus, Plane, Calendar, MapPin, Loader2, PenTool, CheckCircle2 } from "lucide-react"
+import { Plus, Plane, Calendar, MapPin, Loader2, PenTool, CheckCircle2, Search, X } from "lucide-react"
 import { format } from "date-fns"
 import { BulkSignatureModal } from "@/components/jumps/BulkSignatureModal"
 
@@ -25,7 +26,10 @@ interface Jump {
   exitAltitude?: number
   deploymentAltitude?: number
   freefallTime?: number
+  notes?: string
   dropzone: { id: string; name: string }
+  aircraft?: { id: string; name: string } | null
+  jumpType?: { id: string; name: string } | null
   signatures?: Array<{ id: string }>
 }
 
@@ -40,16 +44,31 @@ export default function JumpsPage() {
   const [selectedJumps, setSelectedJumps] = useState<Set<string>>(new Set())
   const [showSignatureModal, setShowSignatureModal] = useState(false)
   const [signing, setSigning] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [showSearch, setShowSearch] = useState(false)
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchData()
   }, [])
 
-  const fetchData = async () => {
+  // Fetch data when search changes
+  useEffect(() => {
+    if (debouncedSearch.trim()) {
+      fetchData(debouncedSearch)
+    } else if (searchQuery === "" && debouncedSearch === "") {
+      // Only refetch when search is cleared
+      fetchData()
+    }
+  }, [debouncedSearch])
+
+  const fetchData = async (searchTerm?: string) => {
     try {
       const timestamp = Date.now()
+      const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ''
       const [jumpsRes, userRes] = await Promise.all([
-        fetch(`/api/jumps?limit=50&orderBy=jumpNumber&order=desc&t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/jumps?limit=50&orderBy=jumpNumber&order=desc${searchParam}&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/user?t=${timestamp}`, { cache: 'no-store' })
       ])
 
@@ -91,6 +110,39 @@ export default function JumpsPage() {
       setLoadingMore(false)
     }
   }
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  // Auto-focus search input when shown
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      searchInputRef.current.focus()
+    }
+  }, [showSearch])
+
+  const toggleSearchMode = useCallback(() => {
+    setShowSearch(!showSearch)
+    if (showSearch) {
+      // Clear search when closing
+      setSearchQuery("")
+      setDebouncedSearch("")
+    }
+  }, [showSearch])
+
+  const clearSearch = useCallback(() => {
+    setSearchQuery("")
+    setDebouncedSearch("")
+    if (searchInputRef.current) {
+      searchInputRef.current.focus()
+    }
+  }, [])
 
   if (loading) {
     return <PageLoader />
@@ -158,18 +210,30 @@ export default function JumpsPage() {
         <div>
           <h1 className="text-2xl font-bold">Jumps</h1>
           <p className="text-muted-foreground">
-            {total} total jump{total !== 1 ? "s" : ""} logged
+            {debouncedSearch
+              ? `Found ${total} jump${total !== 1 ? "s" : ""}`
+              : `${total} total jump${total !== 1 ? "s" : ""} logged`
+            }
           </p>
         </div>
         <div className="flex items-center gap-2">
           {jumps.length > 0 && (
-            <Button
-              variant={signatureMode ? "default" : "outline"}
-              size="icon"
-              onClick={toggleSignatureMode}
-            >
-              <PenTool className="h-4 w-4" />
-            </Button>
+            <>
+              <Button
+                variant={showSearch ? "default" : "outline"}
+                size="icon"
+                onClick={toggleSearchMode}
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={signatureMode ? "default" : "outline"}
+                size="icon"
+                onClick={toggleSignatureMode}
+              >
+                <PenTool className="h-4 w-4" />
+              </Button>
+            </>
           )}
           <Button asChild>
             <Link href="/jumps/new">
@@ -180,7 +244,36 @@ export default function JumpsPage() {
         </div>
       </div>
 
-      {jumps.length === 0 ? (
+      {/* Search Bar */}
+      {showSearch && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search jumps..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-10"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8"
+                  onClick={clearSearch}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {jumps.length === 0 && !debouncedSearch ? (
         <EmptyState
           title="No jumps logged yet"
           description="Start tracking your skydiving journey by logging your first jump."
@@ -188,6 +281,19 @@ export default function JumpsPage() {
           actionHref="/jumps/new"
           icon={<Plane className="h-8 w-8 text-muted-foreground" />}
         />
+      ) : jumps.length === 0 && debouncedSearch ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No jumps match your search</h3>
+            <p className="text-muted-foreground mb-4">
+              Try searching for jump numbers, dropzones, aircraft, customer names, or notes
+            </p>
+            <Button variant="outline" onClick={clearSearch}>
+              Clear Search
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <>
           <div className="space-y-3">
@@ -298,8 +404,8 @@ export default function JumpsPage() {
             })}
           </div>
 
-          {/* Load More Section */}
-          {hasMore && (
+          {/* Load More Section - Hidden when searching */}
+          {!debouncedSearch && hasMore && (
             <div className="flex flex-col items-center gap-2 pt-4">
               <p className="text-sm text-muted-foreground">
                 Showing {jumps.length} of {total} jumps
@@ -325,10 +431,19 @@ export default function JumpsPage() {
           )}
 
           {/* End of List Indicator */}
-          {!hasMore && jumps.length > 0 && (
+          {!debouncedSearch && !hasMore && jumps.length > 0 && (
             <div className="text-center pt-4">
               <p className="text-sm text-muted-foreground">
                 All {total} jumps loaded
+              </p>
+            </div>
+          )}
+
+          {/* Search Info */}
+          {debouncedSearch && jumps.length > 0 && (
+            <div className="text-center pt-4">
+              <p className="text-sm text-muted-foreground">
+                Showing {jumps.length} of {total} matching jump{total !== 1 ? "s" : ""}
               </p>
             </div>
           )}

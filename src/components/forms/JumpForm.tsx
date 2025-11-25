@@ -15,8 +15,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Combobox } from "@/components/ui/combobox"
+import { GearMultiselect } from "@/components/ui/gear-multiselect"
 import { useToast } from "@/hooks/useToast"
-import { Loader2, CheckCircle2, Package } from "lucide-react"
+import { Loader2, CheckCircle2 } from "lucide-react"
 import { secondsToHHMMSS, parseHHMMSSToSeconds, isValidHHMMSS } from "@/lib/utils/timeFormat"
 import { format } from "date-fns"
 import { Card, CardContent } from "@/components/ui/card"
@@ -186,15 +187,6 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
     }
   }, [formData.exitAltitude, formData.deploymentAltitude, unitPreference])
 
-  const toggleGearComponent = (id: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      gearComponentIds: prev.gearComponentIds.includes(id)
-        ? prev.gearComponentIds.filter((cid: string) => cid !== id)
-        : [...prev.gearComponentIds, id],
-    }))
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -245,14 +237,6 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
     }
   }
 
-  const typeLabels: Record<string, string> = {
-    MAIN: "Main",
-    RESERVE: "Reserve",
-    AAD: "AAD",
-    CONTAINER: "Container",
-    OTHER: "Other",
-  }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -293,81 +277,20 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="rigId">Rig</Label>
-          <Select
-            value={formData.rigId}
-            onValueChange={(value) => {
-              // Find the selected rig
-              const selectedRig = rigs.find((r) => r.id === value)
-
-              // Auto-select all gear components from the rig
-              const rigComponentIds = selectedRig?.rigComponents?.map((rc: any) => rc.gearComponentId) || []
-
-              console.log("Rig selected:", selectedRig?.name, "with components:", rigComponentIds)
-
-              setFormData({
-                ...formData,
-                rigId: value,
-                gearComponentIds: rigComponentIds,
-              })
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select rig" />
-            </SelectTrigger>
-            <SelectContent>
-              {rigs.map((rig) => (
-                <SelectItem key={rig.id} value={rig.id}>
-                  {rig.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="gearUsed">Gear Used</Label>
+          <GearMultiselect
+            rigs={rigs}
+            gearComponents={gearComponents}
+            selectedComponentIds={formData.gearComponentIds}
+            onSelectionChange={(componentIds) =>
+              setFormData({ ...formData, gearComponentIds: componentIds, rigId: "" })
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            Select a rig to use all its components, or pick individual items
+          </p>
         </div>
-
-        {/* Show rig components when a rig is selected */}
-        {formData.rigId && (() => {
-          const selectedRig = rigs.find((r) => r.id === formData.rigId)
-          const rigComponents = selectedRig?.rigComponents || []
-
-          if (rigComponents.length === 0) return null
-
-          return (
-            <Card className="bg-muted/30">
-              <CardContent className="pt-6">
-                <Label className="mb-3 block">Rig Components</Label>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Components in {selectedRig?.name}. Deselect any not used for this jump.
-                </p>
-                <div className="space-y-2">
-                  {rigComponents.map((rc: any) => {
-                    // Find the full gear component details
-                    const component = gearComponents.find((gc) => gc.id === rc.gearComponentId)
-                    if (!component) return null
-
-                    return (
-                      <div key={rc.id} className="flex items-center space-x-2 p-2 rounded-lg border bg-background">
-                        <Checkbox
-                          id={`rig-component-${component.id}`}
-                          checked={formData.gearComponentIds.includes(component.id)}
-                          onCheckedChange={() => toggleGearComponent(component.id)}
-                        />
-                        <Label htmlFor={`rig-component-${component.id}`} className="font-normal flex items-center gap-2 cursor-pointer flex-1">
-                          <Package className="h-3 w-3" />
-                          <span className="font-medium">{component.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            ({typeLabels[component.type] || component.type})
-                          </span>
-                        </Label>
-                      </div>
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })()}
 
         <div className="space-y-2">
           <Label htmlFor="aircraftId">Aircraft</Label>
@@ -455,36 +378,6 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
           </p>
         </div>
       </div>
-
-      {/* Individual Gear Components */}
-      {gearComponents.length > 0 && (
-        <Card>
-          <CardContent className="pt-6">
-            <Label className="mb-3 block">Individual Gear Components</Label>
-            <p className="text-xs text-muted-foreground mb-3">
-              Select individual components if not using a complete rig, or to track specific components
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {gearComponents.map((component) => (
-                <div key={component.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`component-${component.id}`}
-                    checked={formData.gearComponentIds.includes(component.id)}
-                    onCheckedChange={() => toggleGearComponent(component.id)}
-                  />
-                  <Label htmlFor={`component-${component.id}`} className="font-normal flex items-center gap-2">
-                    <Package className="h-3 w-3" />
-                    <span className="font-medium">{component.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      ({typeLabels[component.type] || component.type})
-                    </span>
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <div className="flex items-center space-x-2">
         <Checkbox

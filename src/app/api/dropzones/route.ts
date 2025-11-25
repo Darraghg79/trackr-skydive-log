@@ -23,7 +23,13 @@ export async function GET(request: NextRequest) {
 
     console.log('GET /api/dropzones params:', { userId: user.id, limit, offset, orderBy, order, isActive })
 
-    const where: any = { userId: user.id }
+    // Build where clause to include both global dropzones and user-specific dropzones
+    const where: any = {
+      OR: [
+        { userId: user.id }, // User's own dropzones
+        { isGlobal: true },  // Global dropzones
+      ],
+    }
     if (isActive !== null) where.isActive = isActive === 'true'
 
     console.log('GET /api/dropzones where clause:', where)

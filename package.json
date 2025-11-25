@@ -12,7 +12,8 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "generate:icons": "node scripts/generate-icons.mjs"
+    "generate:icons": "node scripts/generate-icons.mjs",
+    "import:dropzones": "tsx src/scripts/import-dropzones.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.0",

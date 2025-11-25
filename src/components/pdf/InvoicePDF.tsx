@@ -182,12 +182,14 @@ interface InvoiceData {
   }
   lineItems: Array<{
     id: string
+    jumpId?: string
     workJumpType: string
     itemType: string
     quantity: number
     unitPrice: number
     lineTotal: number
     jump: {
+      id?: string
       jumpNumber: number
       date: string
       customerName?: string
@@ -398,8 +400,8 @@ export const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice }) => {
             // Deduplicate jumps - show each jump only once
             const uniqueJumps = new Map<string, typeof invoice.lineItems[0]>()
             invoice.lineItems.forEach(item => {
-              const jumpId = item.jump.id || item.jumpId
-              if (!uniqueJumps.has(jumpId)) {
+              const jumpId = item.jump.id || item.jumpId || item.id
+              if (jumpId && !uniqueJumps.has(jumpId)) {
                 uniqueJumps.set(jumpId, item)
               }
             })

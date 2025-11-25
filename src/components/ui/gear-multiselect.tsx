@@ -96,7 +96,8 @@ export function GearMultiselect({
       onSelectionChange(selectedComponentIds.filter((id) => !rigComponentIds.includes(id)))
     } else {
       // Select all components from this rig
-      const newSelection = [...new Set([...selectedComponentIds, ...rigComponentIds])]
+      const combined = selectedComponentIds.concat(rigComponentIds)
+      const newSelection = Array.from(new Set(combined))
       onSelectionChange(newSelection)
     }
   }

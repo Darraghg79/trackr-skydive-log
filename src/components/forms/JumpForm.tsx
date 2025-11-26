@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Combobox } from "@/components/ui/combobox"
+import { DropzoneCombobox } from "@/components/ui/dropzone-combobox"
 import { GearMultiselect } from "@/components/ui/gear-multiselect"
 import { useToast } from "@/hooks/useToast"
 import { Loader2, CheckCircle2 } from "lucide-react"
@@ -29,7 +30,6 @@ interface JumpFormProps {
 
 export function JumpForm({ initialData, jumpId }: JumpFormProps) {
   const [loading, setLoading] = useState(false)
-  const [dropzones, setDropzones] = useState<any[]>([])
   const [rigs, setRigs] = useState<any[]>([])
   const [gearComponents, setGearComponents] = useState<any[]>([])
   const [jumpTypes, setJumpTypes] = useState<any[]>([])
@@ -69,8 +69,7 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
   const fetchOptions = async () => {
     try {
       const timestamp = Date.now()
-      const [dzRes, rigRes, gearRes, jtRes, acRes, userRes] = await Promise.all([
-        fetch(`/api/dropzones?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
+      const [rigRes, gearRes, jtRes, acRes, userRes] = await Promise.all([
         fetch(`/api/rigs?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/gear-components?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/user-jump-types?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
@@ -78,8 +77,7 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
         fetch(`/api/user?t=${timestamp}`, { cache: 'no-store' }),
       ])
 
-      const [dzData, rigData, gearData, jtData, acData, userData] = await Promise.all([
-        dzRes.json(),
+      const [rigData, gearData, jtData, acData, userData] = await Promise.all([
         rigRes.json(),
         gearRes.json(),
         jtRes.json(),
@@ -87,14 +85,11 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
         userRes.json(),
       ])
 
-      console.log("Fetched dropzones for form:", dzData.data?.length || 0, "items")
       console.log("Fetched rigs for form:", rigData.data?.length || 0, "items")
       console.log("Fetched gear components for form:", gearData.data?.length || 0, "items")
       console.log("Fetched jump types for form:", jtData.data?.length || 0, "items")
       console.log("Fetched aircrafts for form:", acData.data?.length || 0, "items")
       console.log("User data:", userData?.currentJumpNumber)
-
-      setDropzones(dzData.data || [])
       // Rigs come with rigComponents included from API
       setRigs(rigData.data || [])
       setGearComponents(gearData.data || [])
@@ -265,15 +260,12 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
 
         <div className="space-y-2">
           <Label htmlFor="dropzoneId">Dropzone *</Label>
-          <Combobox
-            options={dropzones.map((dz) => ({ value: dz.id, label: dz.name }))}
+          <DropzoneCombobox
             value={formData.dropzoneId}
             onValueChange={(value) =>
               setFormData({ ...formData, dropzoneId: value })
             }
-            placeholder="Select dropzone"
-            searchPlaceholder="Search dropzones..."
-            emptyText="No dropzones found."
+            placeholder="Select dropzone..."
           />
         </div>
 

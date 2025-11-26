@@ -37,7 +37,7 @@ export default function DashboardPage() {
       const [userRes, jumpsRes, dropzonesRes, aircraftRes] = await Promise.all([
         fetch("/api/user"),
         fetch("/api/jumps?limit=5"),
-        fetch("/api/dropzones"),
+        fetch("/api/dropzones?limit=1000"),
         fetch("/api/user-aircrafts"),
       ])
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { createClient } from '@/lib/supabase/server'
 import { DropzoneCreateSchema } from '@/lib/validations/dropzone'
 import { ZodError } from 'zod'
@@ -15,29 +16,46 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100)
+    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 1000)
     const offset = parseInt(searchParams.get('offset') || '0')
-    const orderBy = searchParams.get('orderBy') || 'name'
-    const order = searchParams.get('order') || 'asc'
     const isActive = searchParams.get('isActive')
+    const search = searchParams.get('search')
 
-    console.log('GET /api/dropzones params:', { userId: user.id, limit, offset, orderBy, order, isActive })
+    console.log('GET /api/dropzones params:', { userId: user.id, limit, offset, isActive, search })
 
-    // Build where clause to include both global dropzones and user-specific dropzones
+    // Build where clause for user's dropzones only
     const where: any = {
-      OR: [
-        { userId: user.id }, // User's own dropzones
-        { isGlobal: true },  // Global dropzones
-      ],
+      userId: user.id,
     }
     if (isActive !== null) where.isActive = isActive === 'true'
 
-    console.log('GET /api/dropzones where clause:', where)
+    // Add search filter
+    if (search && search.trim()) {
+      const searchTerm = search.trim()
+      const searchConditions = {
+        OR: [
+          { name: { contains: searchTerm, mode: Prisma.QueryMode.insensitive } },
+          { country: { contains: searchTerm, mode: Prisma.QueryMode.insensitive } },
+          { city: { contains: searchTerm, mode: Prisma.QueryMode.insensitive } },
+        ],
+      }
+      // Combine with existing where clause
+      where.AND = [searchConditions]
+    }
+
+    console.log('GET /api/dropzones where clause:', JSON.stringify(where, null, 2))
 
     const [items, total] = await Promise.all([
       prisma.dropzone.findMany({
         where,
-        orderBy: { [orderBy]: order },
+        orderBy: [
+          // Configured dropzones first (those with at least one rate set)
+          {
+            rateAFF: { sort: 'desc', nulls: 'last' }
+          },
+          // Then by name alphabetically
+          { name: 'asc' },
+        ],
         take: limit,
         skip: offset,
       }),

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -10,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { useToast } from "@/hooks/useToast"
-import { Plus, Plane, Calendar, MapPin, Loader2, PenTool, CheckCircle2, Search, X } from "lucide-react"
+import { Plus, Plane, Calendar, MapPin, Loader2, PenTool, CheckCircle2, Search, X, Copy } from "lucide-react"
 import { format } from "date-fns"
 import { BulkSignatureModal } from "@/components/jumps/BulkSignatureModal"
 
@@ -35,6 +36,7 @@ interface Jump {
 
 export default function JumpsPage() {
   const { toast } = useToast()
+  const router = useRouter()
   const [jumps, setJumps] = useState<Jump[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -143,6 +145,39 @@ export default function JumpsPage() {
       searchInputRef.current.focus()
     }
   }, [])
+
+  const handleCopyJump = async (jumpId: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    try {
+      // Fetch the full jump data
+      const response = await fetch(`/api/jumps/${jumpId}`)
+      if (!response.ok) throw new Error("Failed to fetch jump")
+      const jump = await response.json()
+
+      // Create a copy of jump data, excluding customer name if it's a work jump
+      const jumpDataToCopy = {
+        ...jump,
+        customerName: jump.isWorkJump ? undefined : jump.customerName,
+      }
+
+      // Store in sessionStorage to pass to new jump form
+      sessionStorage.setItem("copyJumpData", JSON.stringify(jumpDataToCopy))
+
+      toast({
+        title: "Jump copied",
+        description: "Redirecting to new jump form with copied data",
+      })
+
+      router.push("/jumps/new")
+    } catch (error) {
+      toast({
+        title: "Failed to copy jump",
+        variant: "destructive",
+      })
+    }
+  }
 
   if (loading) {
     return <PageLoader />
@@ -354,50 +389,61 @@ export default function JumpsPage() {
                       </CardContent>
                     </Card>
                   ) : (
-                    <Link href={`/jumps/${jump.id}`}>
-                      <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="text-2xl font-bold text-primary">
-                                #{jump.jumpNumber}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <Calendar className="h-4 w-4" />
-                                  {format(new Date(jump.date), "MMM d, yyyy")}
+                    <div className="relative group">
+                      <Link href={`/jumps/${jump.id}`}>
+                        <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4">
+                                <div className="text-2xl font-bold text-primary">
+                                  #{jump.jumpNumber}
                                 </div>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <MapPin className="h-4 w-4" />
-                                  {jump.dropzone.name}
+                                <div>
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Calendar className="h-4 w-4" />
+                                    {format(new Date(jump.date), "MMM d, yyyy")}
+                                  </div>
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <MapPin className="h-4 w-4" />
+                                    {jump.dropzone.name}
+                                  </div>
                                 </div>
                               </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {isSigned && (
+                                  <Badge variant="success" className="gap-1">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    Signed
+                                  </Badge>
+                                )}
+                                {jump.isWorkJump && (
+                                  <Badge variant="secondary">
+                                    {jump.workJumpType}
+                                  </Badge>
+                                )}
+                                {jump.isCutaway && (
+                                  <Badge variant="destructive">Cutaway</Badge>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {isSigned && (
-                                <Badge variant="success" className="gap-1">
-                                  <CheckCircle2 className="h-3 w-3" />
-                                  Signed
-                                </Badge>
-                              )}
-                              {jump.isWorkJump && (
-                                <Badge variant="secondary">
-                                  {jump.workJumpType}
-                                </Badge>
-                              )}
-                              {jump.isCutaway && (
-                                <Badge variant="destructive">Cutaway</Badge>
-                              )}
-                            </div>
-                          </div>
-                          {jump.customerName && (
-                            <div className="mt-2 text-sm text-muted-foreground">
-                              Customer: {jump.customerName}
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </Link>
+                            {jump.customerName && (
+                              <div className="mt-2 text-sm text-muted-foreground">
+                                Customer: {jump.customerName}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </Link>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => handleCopyJump(jump.id, e)}
+                        title="Copy jump"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
                   )}
                 </div>
               )

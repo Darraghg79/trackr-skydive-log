@@ -16,6 +16,9 @@ export const UserProfileUpdateSchema = z.object({
   brandingCompanyName: z.string().max(100).optional(),
   brandingPrimaryColor: z.string().max(20).optional(),
   brandingInvoiceFooter: z.string().max(500).optional(),
+  defaultDropzoneId: z.string().uuid().nullable().optional(),
+  defaultExitAltitude: z.number().int().min(0).nullable().optional(),
+  defaultDeploymentAltitude: z.number().int().min(0).nullable().optional(),
 })
 
 export type UserProfileUpdateInput = z.infer<typeof UserProfileUpdateSchema>

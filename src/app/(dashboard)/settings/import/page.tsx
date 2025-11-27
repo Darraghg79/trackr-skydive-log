@@ -24,10 +24,11 @@ const TRACKR_FIELDS = [
   { value: "dropzone", label: "Dropzone" },
   { value: "aircraft", label: "Aircraft" },
   { value: "jumptype", label: "Jump Type" },
-  { value: "rig", label: "Rig" },
+  { value: "rig", label: "Gear (comma-separated components)" },
   { value: "exitaltitude", label: "Exit Altitude" },
   { value: "deploymentaltitude", label: "Deployment Altitude" },
   { value: "freefalltime", label: "Freefall Time" },
+  { value: "distancetotarget", label: "Distance to Target" },
   { value: "iscutaway", label: "Is Cutaway" },
   { value: "workjump", label: "Work Jump" },
   { value: "workjumptype", label: "Work Jump Type" },
@@ -328,12 +329,22 @@ export default function ImportJumpsPage() {
               <CardContent className="pt-6 space-y-4">
                 <div className="flex items-start gap-2">
                   <Info className="h-5 w-5 text-blue-500 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Unit Conversion</p>
-                    <p className="text-xs text-muted-foreground">
-                      Your account is set to <strong>{userUnitPreference}</strong> units.
-                      Specify the units in your CSV file.
-                    </p>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Unit Conversion</p>
+                      <p className="text-xs text-muted-foreground">
+                        Your account is set to <strong>{userUnitPreference}</strong> units.
+                        Specify the units in your CSV file.
+                      </p>
+                    </div>
+                    <div className="space-y-1 pt-2 border-t">
+                      <p className="text-sm font-medium">Gear Components (Optional)</p>
+                      <p className="text-xs text-muted-foreground">
+                        List all gear used in the <strong>Gear</strong> column with commas: <code className="text-xs bg-muted px-1 rounded">Mirage G4, Crossfire 2 149, PD Reserve 176</code>
+                        <br />
+                        Each item becomes a separate component. Jump counts are tracked per component. Group into rigs later in the app.
+                      </p>
+                    </div>
                   </div>
                 </div>
 

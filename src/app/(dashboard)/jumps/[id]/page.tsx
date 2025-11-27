@@ -7,7 +7,7 @@ import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { useToast } from "@/hooks/useToast"
-import { Trash2 } from "lucide-react"
+import { Trash2, Copy } from "lucide-react"
 
 export default function JumpDetailPage() {
   const params = useParams()
@@ -51,6 +51,24 @@ export default function JumpDetailPage() {
     }
   }
 
+  const handleCopy = () => {
+    // Create a copy of jump data, excluding customer name if it's a work jump
+    const jumpDataToCopy = {
+      ...jump,
+      customerName: jump.isWorkJump ? undefined : jump.customerName,
+    }
+
+    // Store in sessionStorage to pass to new jump form
+    sessionStorage.setItem("copyJumpData", JSON.stringify(jumpDataToCopy))
+
+    toast({
+      title: "Jump copied",
+      description: "Redirecting to new jump form with copied data",
+    })
+
+    router.push("/jumps/new")
+  }
+
   if (loading) {
     return <PageLoader />
   }
@@ -63,14 +81,24 @@ export default function JumpDetailPage() {
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Edit Jump #{jump.jumpNumber}</h1>
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => setShowDelete(true)}
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          Delete
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopy}
+          >
+            <Copy className="h-4 w-4 mr-2" />
+            Copy
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowDelete(true)}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete
+          </Button>
+        </div>
       </div>
 
       <JumpForm initialData={jump} jumpId={params.id as string} />

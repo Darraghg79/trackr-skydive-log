@@ -10,6 +10,7 @@ export const JumpCreateSchema = z.object({
   exitAltitude: z.number().int().min(0).optional(),
   deploymentAltitude: z.number().int().min(0).optional(),
   freefallTime: z.number().int().min(0).optional(),
+  distanceToTarget: z.number().int().min(0).optional(),
   isCutaway: z.boolean().default(false),
   notes: z.string().max(2000).optional(),
   photoUrl: z.string().url().optional(),

@@ -38,32 +38,41 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
   const [unitPreference, setUnitPreference] = useState<"METRIC" | "IMPERIAL">("IMPERIAL")
   const manuallyEditedFreefallTimeRef = useRef(false)
 
+  // Debug logging for initialData
+  console.log("[JumpForm] Initializing with initialData:", initialData)
+  console.log("[JumpForm] Is copy mode:", !!initialData && !jumpId)
+  console.log("[JumpForm] Is edit mode:", !!initialData && !!jumpId)
+
   const [formData, setFormData] = useState({
-    jumpNumber: initialData?.jumpNumber || 1,
+    jumpNumber: initialData?.jumpNumber ?? 1,
     date: initialData?.date
       ? new Date(initialData.date).toISOString().split("T")[0]
       : new Date().toISOString().split("T")[0],
-    dropzoneId: initialData?.dropzoneId || "",
-    aircraftId: initialData?.aircraftId || "",
-    jumpTypeId: initialData?.jumpTypeId || "",
-    rigId: initialData?.rigId || "",
-    gearComponentIds: initialData?.gearComponents?.map((gc: any) => gc.gearComponentId) || [],
-    exitAltitude: initialData?.exitAltitude || "",
-    deploymentAltitude: initialData?.deploymentAltitude || "",
-    freefallTime: initialData?.freefallTime ? secondsToHHMMSS(initialData.freefallTime) : "",
-    isCutaway: initialData?.isCutaway || false,
-    notes: initialData?.notes || "",
-    isWorkJump: initialData?.isWorkJump || false,
-    workJumpType: initialData?.workJumpType || "",
-    customerName: initialData?.customerName || "",
-    hasHandcam: initialData?.hasHandcam || false,
+    dropzoneId: initialData?.dropzoneId ?? "",
+    aircraftId: initialData?.aircraftId ?? "",
+    jumpTypeId: initialData?.jumpTypeId ?? "",
+    rigId: initialData?.rigId ?? "",
+    gearComponentIds: initialData?.gearComponents?.map((gc: any) => gc.gearComponentId) ?? [],
+    exitAltitude: initialData?.exitAltitude ?? "",
+    deploymentAltitude: initialData?.deploymentAltitude ?? "",
+    freefallTime: initialData?.freefallTime !== undefined ? secondsToHHMMSS(initialData.freefallTime) : "",
+    distanceToTarget: initialData?.distanceToTarget ?? "",
+    isCutaway: initialData?.isCutaway ?? false,
+    notes: initialData?.notes ?? "",
+    isWorkJump: initialData?.isWorkJump ?? false,
+    workJumpType: initialData?.workJumpType ?? "",
+    customerName: initialData?.customerName ?? "",
+    hasHandcam: initialData?.hasHandcam ?? false,
   })
+
+  console.log("[JumpForm] Initial formData state:", formData)
 
   const router = useRouter()
   const { toast } = useToast()
 
   useEffect(() => {
     fetchOptions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const fetchOptions = async () => {
@@ -105,11 +114,28 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
         console.log("⚠ No unit preference found, using default: IMPERIAL")
       }
 
+      console.log("[JumpForm] Checking if should apply defaults:", {
+        hasInitialData: !!initialData,
+        currentJumpNumber: userData?.currentJumpNumber,
+        willApply: !initialData && userData?.currentJumpNumber
+      })
+
       if (!initialData && userData?.currentJumpNumber) {
+        console.log("[JumpForm] Applying default values:", {
+          jumpNumber: userData.currentJumpNumber + 1,
+          defaultDropzoneId: userData.defaultDropzoneId,
+          defaultExitAltitude: userData.defaultExitAltitude,
+          defaultDeploymentAltitude: userData.defaultDeploymentAltitude,
+        })
         setFormData((prev) => ({
           ...prev,
           jumpNumber: userData.currentJumpNumber + 1,
+          dropzoneId: userData.defaultDropzoneId || prev.dropzoneId,
+          exitAltitude: userData.defaultExitAltitude || prev.exitAltitude,
+          deploymentAltitude: userData.defaultDeploymentAltitude || prev.deploymentAltitude,
         }))
+      } else {
+        console.log("[JumpForm] NOT applying defaults - initialData exists or no user data")
       }
     } catch (error) {
       console.error("Failed to fetch options:", error)
@@ -198,6 +224,9 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
           : undefined,
         freefallTime: formData.freefallTime
           ? parseHHMMSSToSeconds(formData.freefallTime.toString())
+          : undefined,
+        distanceToTarget: formData.distanceToTarget
+          ? parseInt(formData.distanceToTarget.toString())
           : undefined,
         aircraftId: formData.aircraftId || undefined,
         jumpTypeId: formData.jumpTypeId || undefined,
@@ -367,6 +396,25 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
           />
           <p className="text-xs text-muted-foreground">
             Auto-calculated based on altitudes (you can override). Enter as HH:MM:SS, MM:SS, or seconds
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="distanceToTarget">
+            Distance to Target ({unitPreference === "METRIC" ? "m" : "ft"})
+          </Label>
+          <Input
+            id="distanceToTarget"
+            type="number"
+            min="0"
+            value={formData.distanceToTarget}
+            onChange={(e) =>
+              setFormData({ ...formData, distanceToTarget: e.target.value })
+            }
+            placeholder="e.g., 10"
+          />
+          <p className="text-xs text-muted-foreground">
+            Distance from planned landing target (accuracy measurement)
           </p>
         </div>
       </div>

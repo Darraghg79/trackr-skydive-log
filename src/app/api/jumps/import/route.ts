@@ -232,21 +232,66 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Find or create rig if specified
-        const rigName = jump.rig
-        let rigId = null
-        if (rigName) {
-          const existingRig = await prisma.rig.findFirst({
+        // Parse gear components from rig/gear column
+        // Every item in the column is treated as a separate gear component
+        // Example: "Mirage G4, Crossfire 2 149" creates two components
+        const rawGearValue = jump.rig || jump.gear
+        const gearComponentIds: string[] = []
+
+        if (rawGearValue) {
+          // Split by comma - each item is a separate component
+          const componentNames = rawGearValue
+            .toString()
+            .split(",")
+            .map((c: string) => c.trim())
+            .filter(Boolean)
+
+          // Create a lookup map for existing gear components
+          const existingGearComponents = await prisma.gearComponent.findMany({
             where: {
               userId: user.id,
-              name: rigName,
+              name: { in: componentNames },
             },
           })
-          if (existingRig) {
-            rigId = existingRig.id
+
+          const existingGearMap = new Map(
+            existingGearComponents.map((gc) => [gc.name.toLowerCase(), gc.id])
+          )
+
+          // For each component name, find or create the gear component
+          for (const componentName of componentNames) {
+            const normalizedName = componentName.toLowerCase()
+            let gearComponentId = existingGearMap.get(normalizedName)
+
+            if (!gearComponentId) {
+              // Create new gear component
+              const newGearComponent = await prisma.gearComponent.create({
+                data: {
+                  userId: user.id,
+                  type: "OTHER",
+                  name: componentName,
+                  manufacturer: "Unknown",
+                  isActive: true,
+                },
+              })
+              gearComponentId = newGearComponent.id
+              existingGearMap.set(normalizedName, gearComponentId)
+              console.log(`Auto-created gear component: ${componentName}`)
+            }
+
+            gearComponentIds.push(gearComponentId)
           }
-          // Note: We don't auto-create rigs since they require component setup
         }
+
+        // Parse distance to target with unit conversion
+        const rawDistanceToTarget = jump.distancetotarget || jump.distanceToTarget
+        const distanceToTarget = rawDistanceToTarget
+          ? convertAltitude(
+              parseInt(rawDistanceToTarget),
+              csvAltitudeUnit as UnitPreference,
+              userRecord.unitPreference
+            )
+          : undefined
 
         const jumpData = {
           userId: user.id,
@@ -255,12 +300,13 @@ export async function POST(req: NextRequest) {
           dropzoneId,
           aircraftId: aircraftId || undefined,
           jumpTypeId: jumpTypeId || undefined,
-          rigId: rigId || undefined,
+          rigId: undefined, // Don't link to rig on import
           exitAltitude,
           deploymentAltitude,
           freefallTime: jump.freefalltime || jump.freefallTime
             ? parseInt(jump.freefalltime || jump.freefallTime)
             : undefined,
+          distanceToTarget,
           isCutaway,
           isWorkJump,
           workJumpType: workJumpType as any,
@@ -272,10 +318,27 @@ export async function POST(req: NextRequest) {
 
         if (existingJump) {
           if (overwrite) {
-            // Update existing jump
-            await prisma.jump.update({
-              where: { id: existingJump.id },
-              data: jumpData,
+            // Update existing jump and gear components
+            await prisma.$transaction(async (tx) => {
+              await tx.jump.update({
+                where: { id: existingJump.id },
+                data: jumpData,
+              })
+
+              // Delete existing gear component links
+              await tx.jumpGearComponent.deleteMany({
+                where: { jumpId: existingJump.id },
+              })
+
+              // Create new gear component links
+              if (gearComponentIds.length > 0) {
+                await tx.jumpGearComponent.createMany({
+                  data: gearComponentIds.map((gearComponentId) => ({
+                    jumpId: existingJump.id,
+                    gearComponentId,
+                  })),
+                })
+              }
             })
             updated++
           } else {
@@ -284,9 +347,21 @@ export async function POST(req: NextRequest) {
             continue
           }
         } else {
-          // Create new jump
-          await prisma.jump.create({
-            data: jumpData,
+          // Create new jump with gear components
+          await prisma.$transaction(async (tx) => {
+            const newJump = await tx.jump.create({
+              data: jumpData,
+            })
+
+            // Link gear components to the jump
+            if (gearComponentIds.length > 0) {
+              await tx.jumpGearComponent.createMany({
+                data: gearComponentIds.map((gearComponentId) => ({
+                  jumpId: newJump.id,
+                  gearComponentId,
+                })),
+              })
+            }
           })
           imported++
         }

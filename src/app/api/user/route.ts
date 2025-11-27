@@ -46,7 +46,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
+
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -84,6 +84,36 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 })
     }
     console.error('PATCH /api/user error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Delete user and all associated data
+    // Prisma cascade deletes will handle related records
+    await prisma.user.delete({
+      where: { id: user.id },
+    })
+
+    // Delete user from Supabase Auth
+    const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id)
+
+    if (deleteError) {
+      console.error('Failed to delete user from Supabase Auth:', deleteError)
+      // Continue anyway as the database record is deleted
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('DELETE /api/user error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

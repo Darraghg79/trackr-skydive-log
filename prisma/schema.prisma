@@ -233,6 +233,7 @@ model Jump {
   workJumpType       WorkJumpType?
   customerName       String?
   hasHandcam         Boolean       @default(false)
+  isImportedAsPaid   Boolean       @default(false)
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -251,6 +252,7 @@ model Jump {
   @@index([date])
   @@index([jumpNumber])
   @@index([isWorkJump])
+  @@index([isImportedAsPaid])
   @@index([aircraftId])
   @@index([jumpTypeId])
   @@index([rigId])

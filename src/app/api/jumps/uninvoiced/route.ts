@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
         userId: user.id,
         dropzoneId,
         isWorkJump: true,
+        isImportedAsPaid: false, // Exclude imported work jumps that were already paid
       },
       include: {
         invoiceLineItems: {

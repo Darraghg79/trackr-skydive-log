@@ -293,6 +293,9 @@ export async function POST(req: NextRequest) {
             )
           : undefined
 
+        // IMPORTANT: Work jumps imported are marked as "already paid"
+        // This prevents them from appearing in uninvoiced jumps list
+        // while still maintaining accurate work jump records for reporting
         const jumpData = {
           userId: user.id,
           jumpNumber,
@@ -312,6 +315,7 @@ export async function POST(req: NextRequest) {
           workJumpType: workJumpType as any,
           customerName: (jump.customername || jump.customerName) || undefined,
           hasHandcam,
+          isImportedAsPaid: isWorkJump, // Mark work jumps as already paid on import
           photoUrl: (jump.photourl || jump.photoUrl) || undefined,
           notes: jump.notes || undefined,
         }

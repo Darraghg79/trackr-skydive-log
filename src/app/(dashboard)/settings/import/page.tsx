@@ -125,7 +125,7 @@ export default function ImportJumpsPage() {
           setColumnMapping(autoMapping)
           setStep("mapping")
         },
-        error: (error) => {
+        error: (error: Error) => {
           toast({
             title: "Error parsing CSV",
             description: error.message,

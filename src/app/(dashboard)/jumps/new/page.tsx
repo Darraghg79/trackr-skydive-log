@@ -28,6 +28,8 @@ export default function NewJumpPage() {
         })
         setCopiedData(parsedData)
         setIsCopy(true)
+        // Increment key to force form remount with new data
+        setFormKey(prev => prev + 1)
         // Clear the sessionStorage after reading
         sessionStorage.removeItem("copyJumpData")
       } catch (error) {
@@ -60,7 +62,7 @@ export default function NewJumpPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <JumpForm key={copiedData ? "copy" : "new"} initialData={copiedData} />
+          <JumpForm key={formKey} initialData={copiedData} />
         </CardContent>
       </Card>
     </div>

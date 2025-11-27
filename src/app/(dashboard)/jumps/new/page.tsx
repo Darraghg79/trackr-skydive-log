@@ -8,6 +8,7 @@ export default function NewJumpPage() {
   const [copiedData, setCopiedData] = useState<any>(null)
   const [isCopy, setIsCopy] = useState(false)
   const [isCheckingStorage, setIsCheckingStorage] = useState(true)
+  const [formKey, setFormKey] = useState(0)
 
   useEffect(() => {
     // Check if there's copied jump data in sessionStorage

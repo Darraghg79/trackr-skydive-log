@@ -7,7 +7,7 @@ async function cleanupGlobalDropzones() {
     // Count global dropzones
     const count = await prisma.dropzone.count({
       where: {
-        userId: null,
+        userId: { equals: null },
       },
     })
 
@@ -21,7 +21,7 @@ async function cleanupGlobalDropzones() {
     // Delete all global dropzones
     const result = await prisma.dropzone.deleteMany({
       where: {
-        userId: null,
+        userId: { equals: null },
       },
     })
 

@@ -66,7 +66,9 @@ export async function POST(req: NextRequest) {
 
     let imported = 0
     let updated = 0
+    let skipped = 0
     let maxJumpNumber = userRecord.currentJumpNumber - 1
+    const errors: Array<{ jumpNumber: number; reason: string }> = []
 
     // Log unit conversion info
     if (csvAltitudeUnit !== userRecord.unitPreference) {
@@ -81,11 +83,47 @@ export async function POST(req: NextRequest) {
       try {
         // Required fields
         const jumpNumber = parseInt(jump.jumpnumber || jump.jumpNumber || jump.number || "0")
-        const date = jump.date
+        const dateStr = jump.date
         const dropzoneName = jump.dropzone
 
-        if (!jumpNumber || !date || !dropzoneName) {
-          console.warn("Skipping jump: missing required fields", jump)
+        if (!jumpNumber || !dateStr || !dropzoneName) {
+          const reason = !jumpNumber ? "missing jump number" : !dateStr ? "missing date" : "missing dropzone"
+          errors.push({ jumpNumber: jumpNumber || 0, reason })
+          skipped++
+          continue
+        }
+
+        // Parse date with multiple format support
+        let parsedDate: Date
+        try {
+          // Try parsing various date formats
+          const date = new Date(dateStr)
+          if (isNaN(date.getTime())) {
+            // Try parsing DD/MM/YYYY or MM/DD/YYYY
+            const parts = dateStr.split(/[-/]/)
+            if (parts.length === 3) {
+              // Try DD/MM/YYYY first (common in Europe)
+              const d1 = new Date(parts[2], parts[1] - 1, parts[0])
+              if (!isNaN(d1.getTime())) {
+                parsedDate = d1
+              } else {
+                // Try MM/DD/YYYY (common in US)
+                const d2 = new Date(parts[2], parts[0] - 1, parts[1])
+                if (!isNaN(d2.getTime())) {
+                  parsedDate = d2
+                } else {
+                  throw new Error("Invalid date format")
+                }
+              }
+            } else {
+              throw new Error("Invalid date format")
+            }
+          } else {
+            parsedDate = date
+          }
+        } catch (dateError) {
+          errors.push({ jumpNumber, reason: `invalid date format: "${dateStr}"` })
+          skipped++
           continue
         }
 
@@ -183,6 +221,17 @@ export async function POST(req: NextRequest) {
         const isCutaway = parseBoolean(jump.iscutaway || jump.isCutaway)
         const hasHandcam = parseBoolean(jump.hashandcam || jump.hasHandcam)
 
+        // Parse and validate workJumpType
+        const rawWorkJumpType = jump.workjumptype || jump.workJumpType
+        let workJumpType: string | undefined = undefined
+        if (rawWorkJumpType) {
+          const normalized = rawWorkJumpType.toString().toUpperCase()
+          // Validate against enum values
+          if (["AFF", "TANDEM", "CAMERA", "COACH"].includes(normalized)) {
+            workJumpType = normalized
+          }
+        }
+
         // Find or create rig if specified
         const rigName = jump.rig
         let rigId = null
@@ -202,7 +251,7 @@ export async function POST(req: NextRequest) {
         const jumpData = {
           userId: user.id,
           jumpNumber,
-          date: new Date(date),
+          date: parsedDate,
           dropzoneId,
           aircraftId: aircraftId || undefined,
           jumpTypeId: jumpTypeId || undefined,
@@ -214,7 +263,7 @@ export async function POST(req: NextRequest) {
             : undefined,
           isCutaway,
           isWorkJump,
-          workJumpType: (jump.workjumptype || jump.workJumpType) || undefined,
+          workJumpType: workJumpType as any,
           customerName: (jump.customername || jump.customerName) || undefined,
           hasHandcam,
           photoUrl: (jump.photourl || jump.photoUrl) || undefined,
@@ -230,7 +279,8 @@ export async function POST(req: NextRequest) {
             })
             updated++
           } else {
-            console.warn(`Jump #${jumpNumber} already exists - skipping (use overwrite mode to update)`)
+            errors.push({ jumpNumber, reason: "already exists (enable overwrite to update)" })
+            skipped++
             continue
           }
         } else {
@@ -245,7 +295,10 @@ export async function POST(req: NextRequest) {
         if (jumpNumber > maxJumpNumber) {
           maxJumpNumber = jumpNumber
         }
-      } catch (error) {
+      } catch (error: any) {
+        const errorMessage = error.message || "Unknown error"
+        errors.push({ jumpNumber: parseInt(jump.jumpnumber || jump.jumpNumber || "0"), reason: errorMessage })
+        skipped++
         console.error("Failed to import jump:", jump, error)
       }
     }
@@ -258,16 +311,25 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    return NextResponse.json({
+    // Prepare summary
+    const summary = {
       success: true,
       imported,
       updated,
+      skipped,
+      total: jumps.length,
       nextJumpNumber: maxJumpNumber + 1,
-    })
+      errors: errors.slice(0, 50), // Limit to first 50 errors to avoid huge responses
+      hasMoreErrors: errors.length > 50,
+    }
+
+    console.log("Import complete:", summary)
+
+    return NextResponse.json(summary)
   } catch (error) {
     console.error("Import error:", error)
     return NextResponse.json(
-      { error: "Import failed" },
+      { error: "Import failed", details: (error as Error).message },
       { status: 500 }
     )
   }

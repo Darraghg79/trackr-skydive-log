@@ -158,7 +158,6 @@ async function importDropzones() {
         // Check for duplicate global dropzone (name + country combination)
         const existing = await prisma.dropzone.findFirst({
           where: {
-            isGlobal: true,
             name: dz.name,
             country: dz.country || null,
           },
@@ -173,22 +172,25 @@ async function importDropzones() {
         // Get currency based on country
         const currency = getCurrency(dz.country)
 
-        // Create global dropzone (userId is null for global dropzones)
-        await prisma.dropzone.create({
-          data: {
-            userId: null,
-            name: dz.name,
-            city: dz.city || null,
-            country: dz.country || null,
-            address: dz.address || null,
-            currency,
-            isActive: true,
-            isGlobal: true,
-          },
-        })
+        // Note: This script is deprecated as the schema no longer supports global dropzones
+        // All dropzones must have a userId. This script will fail at runtime.
+        console.log(`⚠️  Cannot import: "${dz.name}" - Global dropzones no longer supported`)
+        skipped++
 
-        console.log(`✅ Imported: "${dz.name}" (${dz.country}) - Currency: ${currency}`)
-        imported++
+        // The following code is commented out as it won't work with current schema
+        // await prisma.dropzone.create({
+        //   data: {
+        //     userId: null,  // Error: userId is required
+        //     name: dz.name,
+        //     city: dz.city || null,
+        //     country: dz.country || null,
+        //     address: dz.address || null,
+        //     currency,
+        //     isActive: true,
+        //   },
+        // })
+        // console.log(`✅ Imported: "${dz.name}" (${dz.country}) - Currency: ${currency}`)
+        // imported++
       } catch (error) {
         console.error(`❌ Error importing "${dz.name}":`, error)
         errors++

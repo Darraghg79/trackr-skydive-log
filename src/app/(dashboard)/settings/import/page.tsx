@@ -17,6 +17,9 @@ export const dynamic = 'force-dynamic'
 
 type UnitPreference = "METRIC" | "IMPERIAL"
 
+// Client-side chunking to avoid Vercel 300s timeout
+const CHUNK_SIZE = 50
+
 // Standard Trackr field names
 const TRACKR_FIELDS = [
   { value: "jumpnumber", label: "Jump Number" },
@@ -50,6 +53,8 @@ export default function ImportJumpsPage() {
   const [userUnitPreference, setUserUnitPreference] = useState<UnitPreference>("IMPERIAL")
   const [importing, setImporting] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [currentChunk, setCurrentChunk] = useState(0)
+  const [totalChunks, setTotalChunks] = useState(0)
   const [result, setResult] = useState<{
     success: boolean
     message: string
@@ -160,6 +165,7 @@ export default function ImportJumpsPage() {
     setImporting(true)
     setStep("importing")
     setProgress(0)
+    setCurrentChunk(0)
     setResult(null)
 
     try {
@@ -174,39 +180,72 @@ export default function ImportJumpsPage() {
         return mapped
       })
 
-      // Send to API
-      const res = await fetch("/api/jumps/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jumps, overwrite, csvAltitudeUnit }),
-      })
-
-      if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || "Import failed")
+      // Split into chunks of CHUNK_SIZE
+      const chunks: any[][] = []
+      for (let i = 0; i < jumps.length; i += CHUNK_SIZE) {
+        chunks.push(jumps.slice(i, i + CHUNK_SIZE))
       }
 
-      const data = await res.json()
-      setProgress(100)
+      setTotalChunks(chunks.length)
 
+      // Accumulate results across all chunks
+      let totalImported = 0
+      let totalUpdated = 0
+      let totalSkipped = 0
+      const allErrors: Array<{ jumpNumber: number; reason: string }> = []
+
+      // Upload chunks sequentially
+      for (let i = 0; i < chunks.length; i++) {
+        setCurrentChunk(i + 1)
+        setProgress(Math.round(((i + 1) / chunks.length) * 100))
+
+        const chunk = chunks[i]
+        const res = await fetch("/api/jumps/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jumps: chunk, overwrite, csvAltitudeUnit }),
+        })
+
+        if (!res.ok) {
+          const error = await res.json()
+          throw new Error(error.error || "Import failed")
+        }
+
+        const data = await res.json()
+
+        // Accumulate results
+        totalImported += data.imported || 0
+        totalUpdated += data.updated || 0
+        totalSkipped += data.skipped || 0
+        if (data.errors) {
+          allErrors.push(...data.errors)
+        }
+
+        // Wait 100ms between chunks to avoid overwhelming the server
+        if (i < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+      }
+
+      // Final results
       const parts = []
-      if (data.imported > 0) parts.push(`${data.imported} imported`)
-      if (data.updated > 0) parts.push(`${data.updated} updated`)
-      if (data.skipped > 0) parts.push(`${data.skipped} skipped`)
-      const message = parts.length > 0 ? `${parts.join(", ")} out of ${data.total} total` : "No changes made"
+      if (totalImported > 0) parts.push(`${totalImported} imported`)
+      if (totalUpdated > 0) parts.push(`${totalUpdated} updated`)
+      if (totalSkipped > 0) parts.push(`${totalSkipped} skipped`)
+      const message = parts.length > 0 ? `${parts.join(", ")} out of ${jumps.length} total` : "No changes made"
 
       setResult({
         success: true,
         message,
-        imported: data.imported,
-        updated: data.updated,
-        skipped: data.skipped,
-        total: data.total,
-        errors: data.errors,
-        hasMoreErrors: data.hasMoreErrors,
+        imported: totalImported,
+        updated: totalUpdated,
+        skipped: totalSkipped,
+        total: jumps.length,
+        errors: allErrors.slice(0, 50),
+        hasMoreErrors: allErrors.length > 50,
       })
 
-      const hasErrors = data.errors && data.errors.length > 0
+      const hasErrors = allErrors.length > 0
 
       toast({
         title: hasErrors ? "Import completed with errors" : "Import successful",
@@ -214,7 +253,7 @@ export default function ImportJumpsPage() {
       })
 
       // Only auto-redirect if no errors
-      if (!hasErrors && (data.imported > 0 || data.updated > 0)) {
+      if (!hasErrors && (totalImported > 0 || totalUpdated > 0)) {
         setTimeout(() => {
           router.push("/jumps")
           router.refresh()
@@ -408,7 +447,12 @@ export default function ImportJumpsPage() {
           {importing && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span>Importing...</span>
+                <span>
+                  {totalChunks > 1
+                    ? `Uploading batch ${currentChunk}/${totalChunks} (${currentChunk * CHUNK_SIZE}/${csvData.length} jumps)`
+                    : "Importing..."
+                  }
+                </span>
                 <span>{progress}%</span>
               </div>
               <Progress value={progress} />

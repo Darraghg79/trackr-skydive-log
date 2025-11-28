@@ -6,9 +6,6 @@ import { prisma } from "@/lib/prisma"
 const FEET_TO_METERS = 0.3048
 const METERS_TO_FEET = 3.28084
 
-// Batch size for processing - smaller batches to avoid timeout
-const BATCH_SIZE = 100
-
 type UnitPreference = "METRIC" | "IMPERIAL"
 
 // Convert altitude based on source and target units
@@ -81,24 +78,9 @@ export async function POST(req: NextRequest) {
     let maxJumpNumber = userRecord.currentJumpNumber - 1
     const errors: Array<{ jumpNumber: number; reason: string }> = []
 
-    // Log unit conversion info
-    if (csvAltitudeUnit !== userRecord.unitPreference) {
-      console.log(
-        `Converting altitudes from ${csvAltitudeUnit} to ${userRecord.unitPreference}`
-      )
-    } else {
-      console.log(`No altitude conversion needed - both use ${csvAltitudeUnit}`)
-    }
-
-    // Process jumps in batches to avoid memory issues and improve performance
-    for (let i = 0; i < jumps.length; i += BATCH_SIZE) {
-      const batch = jumps.slice(i, i + BATCH_SIZE)
-      const batchNumber = Math.floor(i / BATCH_SIZE) + 1
-      const totalBatches = Math.ceil(jumps.length / BATCH_SIZE)
-      console.log(`Processing batch ${batchNumber}/${totalBatches} (${batch.length} jumps)`)
-
-      for (const jump of batch) {
-        try {
+    // Process jumps array (client sends max 50 jumps at a time)
+    for (const jump of jumps) {
+      try {
         // Required fields
         const jumpNumber = parseInt(jump.jumpnumber || jump.jumpNumber || jump.number || "0")
         const dateStr = jump.date
@@ -399,8 +381,6 @@ export async function POST(req: NextRequest) {
         console.error("Failed to import jump:", jump, error)
       }
     }
-    // End of batch processing
-  }
 
     // Update user's current jump number to continue from imported max
     if (imported > 0 || updated > 0) {

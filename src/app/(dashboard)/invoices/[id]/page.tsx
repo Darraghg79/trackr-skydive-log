@@ -17,11 +17,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/useToast"
-import { ArrowLeft, Download, Send, Loader2, Eye, Mail } from "lucide-react"
+import { ArrowLeft, Download, Send, Loader2, Eye, Mail, RefreshCw } from "lucide-react"
 import { format } from "date-fns"
 import { formatCurrency } from "@/lib/utils/currencyFormat"
 import { pdf } from "@react-pdf/renderer"
 import { InvoicePDF } from "@/components/pdf/InvoicePDF"
+import { isShareableUrlExpired } from "@/lib/utils/shareableUrl"
 
 export default function InvoiceDetailPage() {
   const params = useParams()
@@ -220,6 +221,41 @@ ${invoice.user.phone ? `Phone: ${invoice.user.phone}` : ''}`
     }
   }
 
+  const handleRegenerateInvoice = async () => {
+    try {
+      const res = await fetch(`/api/invoices/${params.id}/share`, {
+        method: 'POST',
+      })
+
+      if (!res.ok) throw new Error("Failed to regenerate")
+
+      const { shareableUrl, expiresAt } = await res.json()
+
+      toast({
+        title: "Invoice link regenerated",
+        description: `New link expires on ${format(new Date(expiresAt), 'MMM d, yyyy')}`
+      })
+
+      // Refresh invoice data to get updated shareable URL
+      fetchInvoice()
+    } catch (error) {
+      toast({
+        title: "Failed to regenerate link",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const getShareableUrl = () => {
+    if (!invoice?.shareableUrl) return null
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://login.trackr-app.online'
+    return `${baseUrl}/share/invoice/${invoice.shareableUrl}`
+  }
+
+  const isLinkExpired = invoice?.shareableUrlExpiry
+    ? isShareableUrlExpired(invoice.shareableUrlExpiry)
+    : true
+
   if (loading) {
     return <PageLoader />
   }
@@ -349,7 +385,7 @@ ${invoice.user.phone ? `Phone: ${invoice.user.phone}` : ''}`
               variant="outline"
               className="w-full"
               onClick={handleViewPDF}
-              disabled={generatingPDF || (invoice.status !== "OPEN" && invoice.status !== "SENT")}
+              disabled={generatingPDF}
             >
               {generatingPDF ? (
                 <>
@@ -367,7 +403,7 @@ ${invoice.user.phone ? `Phone: ${invoice.user.phone}` : ''}`
               variant="outline"
               className="w-full"
               onClick={handleDownloadPDF}
-              disabled={generatingPDF || (invoice.status !== "OPEN" && invoice.status !== "SENT")}
+              disabled={generatingPDF}
             >
               {generatingPDF ? (
                 <>
@@ -381,6 +417,34 @@ ${invoice.user.phone ? `Phone: ${invoice.user.phone}` : ''}`
                 </>
               )}
             </Button>
+            {(invoice.status === "SENT" || invoice.status === "PAID") && (
+              <>
+                {invoice.shareableUrl && !isLinkExpired && (
+                  <div className="pt-2 border-t">
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Shareable link expires: {format(new Date(invoice.shareableUrlExpiry), 'MMM d, yyyy')}
+                    </p>
+                  </div>
+                )}
+                {(!invoice.shareableUrl || isLinkExpired) && (
+                  <div className="pt-2 border-t">
+                    {isLinkExpired && (
+                      <p className="text-xs text-amber-600 mb-2">
+                        Shareable link has expired
+                      </p>
+                    )}
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={handleRegenerateInvoice}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      {invoice.shareableUrl ? 'Regenerate Invoice Link' : 'Generate Shareable Link'}
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

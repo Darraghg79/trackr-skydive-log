@@ -13,10 +13,24 @@ export function createClient() {
           return cookieStore.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({ name, value, ...options })
+          // Enhanced cookie options for iOS PWA persistence
+          const enhancedOptions = {
+            ...options,
+            secure: true,
+            sameSite: 'lax' as const,
+            path: '/',
+            maxAge: 60 * 60 * 24 * 365, // 1 year
+          }
+          cookieStore.set({ name, value, ...enhancedOptions })
         },
         remove(name: string, options: CookieOptions) {
-          cookieStore.set({ name, value: '', ...options })
+          const enhancedOptions = {
+            ...options,
+            secure: true,
+            sameSite: 'lax' as const,
+            path: '/',
+          }
+          cookieStore.set({ name, value: '', ...enhancedOptions })
         },
       },
     }

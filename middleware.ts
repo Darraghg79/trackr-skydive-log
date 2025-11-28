@@ -17,18 +17,32 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options })
+          // Enhance cookie options for iOS PWA persistence
+          const enhancedOptions = {
+            ...options,
+            secure: true,
+            sameSite: 'lax' as const,
+            path: '/',
+            maxAge: 60 * 60 * 24 * 365, // 1 year
+          }
+          request.cookies.set({ name, value, ...enhancedOptions })
           response = NextResponse.next({
             request: { headers: request.headers },
           })
-          response.cookies.set({ name, value, ...options })
+          response.cookies.set({ name, value, ...enhancedOptions })
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: '', ...options })
+          const enhancedOptions = {
+            ...options,
+            secure: true,
+            sameSite: 'lax' as const,
+            path: '/',
+          }
+          request.cookies.set({ name, value: '', ...enhancedOptions })
           response = NextResponse.next({
             request: { headers: request.headers },
           })
-          response.cookies.set({ name, value: '', ...options })
+          response.cookies.set({ name, value: '', ...enhancedOptions })
         },
       },
     }

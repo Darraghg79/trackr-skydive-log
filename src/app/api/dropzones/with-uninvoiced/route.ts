@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
         jumps: {
           some: {
             isWorkJump: true,
+            isImportedAsPaid: false, // Exclude imported work jumps
             invoiceLineItems: {
               none: {} // No line items means not invoiced
             }
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
             jumps: {
               where: {
                 isWorkJump: true,
+                isImportedAsPaid: false, // Exclude imported work jumps
                 invoiceLineItems: {
                   none: {}
                 }

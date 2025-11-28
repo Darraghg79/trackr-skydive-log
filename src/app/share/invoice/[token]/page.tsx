@@ -46,6 +46,7 @@ export default async function SharedInvoicePage({ params }: PageProps) {
               jumpNumber: true,
               date: true,
               customerName: true,
+              workJumpType: true,
               hasHandcam: true,
             },
           },
@@ -93,5 +94,19 @@ export default async function SharedInvoicePage({ params }: PageProps) {
     )
   }
 
-  return <InvoicePDFViewer invoice={invoice} />
+  // Serialize Prisma Decimal fields to numbers for JSON/client component
+  const serializedInvoice = {
+    ...invoice,
+    subtotal: Number(invoice.subtotal),
+    taxRate: invoice.taxRate ? Number(invoice.taxRate) : null,
+    taxAmount: invoice.taxAmount ? Number(invoice.taxAmount) : null,
+    total: Number(invoice.total),
+    lineItems: invoice.lineItems.map((li: any) => ({
+      ...li,
+      unitPrice: Number(li.unitPrice),
+      lineTotal: Number(li.lineTotal),
+    })),
+  }
+
+  return <InvoicePDFViewer invoice={serializedInvoice} />
 }

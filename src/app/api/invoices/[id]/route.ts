@@ -63,6 +63,7 @@ export async function GET(
           userId: user.id,
           dropzoneId: item.dropzoneId,
           isWorkJump: true,
+          isImportedAsPaid: false, // Exclude imported work jumps
         },
         include: {
           invoiceLineItems: {
@@ -157,8 +158,30 @@ export async function GET(
       })
     }
 
-    // For SENT/PAID invoices, return stored line items
-    return NextResponse.json(item)
+    // For SENT/PAID invoices, return stored line items with Decimal conversion
+    const serializedItem = {
+      ...item,
+      subtotal: Number(item.subtotal),
+      taxRate: item.taxRate ? Number(item.taxRate) : null,
+      taxAmount: item.taxAmount ? Number(item.taxAmount) : null,
+      total: Number(item.total),
+      lineItems: item.lineItems.map(li => ({
+        ...li,
+        unitPrice: Number(li.unitPrice),
+        lineTotal: Number(li.lineTotal),
+      })),
+      dropzone: {
+        ...item.dropzone,
+        rateAFF: item.dropzone.rateAFF ? Number(item.dropzone.rateAFF) : null,
+        rateTandem: item.dropzone.rateTandem ? Number(item.dropzone.rateTandem) : null,
+        rateCamera: item.dropzone.rateCamera ? Number(item.dropzone.rateCamera) : null,
+        rateCoach: item.dropzone.rateCoach ? Number(item.dropzone.rateCoach) : null,
+        rateHandcam: item.dropzone.rateHandcam ? Number(item.dropzone.rateHandcam) : null,
+        taxRate: item.dropzone.taxRate ? Number(item.dropzone.taxRate) : null,
+      },
+    }
+
+    return NextResponse.json(serializedItem)
   } catch (error) {
     console.error('GET /api/invoices/[id] error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -206,6 +229,7 @@ export async function PATCH(
             userId: user.id,
             dropzoneId: existing.dropzoneId,
             isWorkJump: true,
+            isImportedAsPaid: false, // Exclude imported work jumps
           },
           include: {
             invoiceLineItems: {

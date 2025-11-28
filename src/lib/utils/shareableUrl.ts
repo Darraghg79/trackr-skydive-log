@@ -28,6 +28,6 @@ export function isShareableUrlExpired(expiryDate: Date | null): boolean {
  * Generate full shareable URL for an invoice
  */
 export function getShareableUrl(token: string, baseUrl?: string): string {
-  const base = baseUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const base = baseUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://login.trackr-app.online'
   return `${base}/share/invoice/${token}`
 }

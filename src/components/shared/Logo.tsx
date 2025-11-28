@@ -1,4 +1,4 @@
-import { Plane } from "lucide-react"
+import Image from "next/image"
 
 interface LogoProps {
   size?: "sm" | "md" | "lg"
@@ -20,9 +20,13 @@ export function Logo({ size = "md", showText = true }: LogoProps) {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="bg-primary rounded-lg p-2">
-        <Plane className={`${sizeClasses[size]} text-primary-foreground`} />
-      </div>
+      <Image
+        src="/icon.svg"
+        alt="TrackR Logo"
+        width={size === "sm" ? 24 : size === "md" ? 32 : 48}
+        height={size === "sm" ? 24 : size === "md" ? 32 : 48}
+        className={`${sizeClasses[size]} rounded-lg`}
+      />
       {showText && (
         <span className={`font-bold ${textClasses[size]}`}>
           TrackR

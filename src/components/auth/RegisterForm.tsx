@@ -62,14 +62,21 @@ export function RegisterForm() {
 
   if (success) {
     return (
-      <div className="text-center p-6 bg-green-50 dark:bg-green-950 rounded-lg">
-        <h3 className="font-semibold text-green-700 dark:text-green-300 mb-2">
-          Check your email
-        </h3>
-        <p className="text-green-600 dark:text-green-400 text-sm">
-          We&apos;ve sent you a verification link. Please check your email to
-          complete registration.
-        </p>
+      <div className="space-y-4">
+        <div className="text-center p-6 bg-green-50 dark:bg-green-950 rounded-lg">
+          <h3 className="font-semibold text-green-700 dark:text-green-300 mb-2">
+            Check your email
+          </h3>
+          <p className="text-green-600 dark:text-green-400 text-sm">
+            We&apos;ve sent you a verification link. Please check your email to
+            complete registration.
+          </p>
+        </div>
+        <div className="text-center text-sm">
+          <Link href="/login" className="text-primary hover:underline">
+            Back to sign in
+          </Link>
+        </div>
       </div>
     )
   }

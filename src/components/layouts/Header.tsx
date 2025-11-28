@@ -17,7 +17,6 @@ import {
 import {
   LogOut,
   Settings,
-  Home,
   BarChart3,
   User,
   Lock,
@@ -30,6 +29,7 @@ import {
   Upload,
   Download,
   Settings as SettingsIcon,
+  FileText,
 } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
@@ -60,12 +60,25 @@ export function Header() {
               size="sm"
               asChild
               className={cn(
-                pathname === "/" && "bg-muted"
+                pathname.startsWith("/jumps") && "bg-muted"
               )}
             >
-              <Link href="/" className="inline-flex items-center gap-2">
-                <Home className="h-4 w-4" />
-                <span>Dashboard</span>
+              <Link href="/jumps" className="inline-flex items-center gap-2">
+                <Plane className="h-4 w-4" />
+                <span>Jumps</span>
+              </Link>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className={cn(
+                pathname.startsWith("/invoices") && "bg-muted"
+              )}
+            >
+              <Link href="/invoices" className="inline-flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                <span>Invoices</span>
               </Link>
             </Button>
             <Button

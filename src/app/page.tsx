@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 
 export default function RootPage() {
-  redirect("/jumps")
+  // Redirect to login - middleware will handle authenticated users
+  redirect("/login")
 }

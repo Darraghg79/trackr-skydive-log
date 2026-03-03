@@ -57,6 +57,7 @@ export function RegisterForm() {
     } else if (data.session) {
       // Email confirmation disabled — session returned immediately
       router.push("/home")
+      router.refresh()
     } else {
       // Email confirmation enabled — show check your email screen
       setSuccess(true)

@@ -41,8 +41,8 @@ if (authError || !user) {
 ```
 
 ### Supabase Clients
-- `src/lib/supabase/client.ts` — browser client (for client components)
-- `src/lib/supabase/server.ts` — server client (for API routes and server components)
+- `src/lib/supabase/client.ts` — browser client using `createBrowserClient` from `@supabase/ssr` (for client components). **Must use `@supabase/ssr` not `@supabase/supabase-js` directly** — the SSR browser client stores the session in cookies, which the middleware can read. The plain JS client stores in localStorage only, which the middleware cannot see, breaking all post-login redirects.
+- `src/lib/supabase/server.ts` — server client using `createServerClient` from `@supabase/ssr` (for API routes and server components)
 
 ---
 

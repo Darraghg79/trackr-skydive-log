@@ -66,6 +66,8 @@ model User {
   startingFreefallTime    Int            @default(0)
   startingCutaways        Int            @default(0)
   invoiceStartingNumber   Int            @default(1)
+  hasCompletedOnboarding  Boolean        @default(false)
+  isWorkingSkydiver       Boolean        @default(false)
   brandingLogo            String?
   brandingCompanyName     String?
   brandingPrimaryColor    String?
@@ -359,4 +361,43 @@ model JumpNumberAuditLog {
   @@index([userId])
   @@index([changedAt])
   @@map("jump_number_audit_logs")
+}
+
+// ============================================
+// GLOBAL REFERENCE DATA (shared, not per-user)
+// ============================================
+
+model GlobalDropzone {
+  id        String   @id @default(uuid())
+  name      String
+  city      String?
+  state     String?
+  country   String?
+  address   String?  @db.Text
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([country])
+  @@index([name])
+  @@map("global_dropzones")
+}
+
+model GlobalAircraft {
+  id        String   @id @default(uuid())
+  name      String
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("global_aircrafts")
+}
+
+model GlobalJumpType {
+  id        String   @id @default(uuid())
+  name      String
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("global_jump_types")
 }

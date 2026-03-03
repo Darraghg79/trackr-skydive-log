@@ -50,7 +50,7 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Define protected routes (all dashboard pages)
+  // Define protected routes (all dashboard pages + onboarding)
   const protectedRoutes = [
     '/jumps',
     '/home',
@@ -62,6 +62,7 @@ export async function middleware(request: NextRequest) {
     '/rigs',
     '/jump-types',
     '/settings',
+    '/onboarding',
   ]
 
   const isProtectedRoute = protectedRoutes.some(route =>
@@ -73,7 +74,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Redirect logged-in users away from auth pages
+  // Redirect logged-in users away from auth pages (not away from /onboarding — that is handled by the dashboard layout)
   if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
     return NextResponse.redirect(new URL('/jumps', request.url))
   }

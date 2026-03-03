@@ -234,7 +234,7 @@ export default function DashboardPage() {
         </Card>
 
         <Card className="hover:bg-muted/50 transition-colors">
-          <Link href="/settings/profile">
+          <Link href="/reports">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />

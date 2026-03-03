@@ -19,6 +19,8 @@ export const UserProfileUpdateSchema = z.object({
   defaultDropzoneId: z.string().uuid().nullable().optional(),
   defaultExitAltitude: z.number().int().min(0).nullable().optional(),
   defaultDeploymentAltitude: z.number().int().min(0).nullable().optional(),
+  hasCompletedOnboarding: z.boolean().optional(),
+  isWorkingSkydiver: z.boolean().optional(),
 })
 
 export type UserProfileUpdateInput = z.infer<typeof UserProfileUpdateSchema>

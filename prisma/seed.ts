@@ -2,6 +2,37 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+// Global aircraft — seeded into GlobalAircraft table (shared, not per-user)
+const GLOBAL_AIRCRAFT = [
+  { name: 'Cessna 182', sortOrder: 0 },
+  { name: 'Cessna 208 Caravan', sortOrder: 1 },
+  { name: 'DHC-6 Twin Otter', sortOrder: 2 },
+  { name: 'PAC 750XL', sortOrder: 3 },
+  { name: 'CASA 212', sortOrder: 4 },
+  { name: 'Pilatus PC-6 Porter', sortOrder: 5 },
+  { name: 'Beechcraft King Air', sortOrder: 6 },
+  { name: 'Shorts Skyvan', sortOrder: 7 },
+  { name: 'Dornier 228', sortOrder: 8 },
+  { name: 'Let L-410 Turbolet', sortOrder: 9 },
+  { name: 'Antonov An-28', sortOrder: 10 },
+  { name: 'Douglas DC-3', sortOrder: 11 },
+]
+
+// Global jump types — seeded into GlobalJumpType table (shared, not per-user)
+const GLOBAL_JUMP_TYPES = [
+  { name: 'Freefall', sortOrder: 0 },
+  { name: 'AFF (Level)', sortOrder: 1 },
+  { name: 'Belly Flying', sortOrder: 2 },
+  { name: 'Freefly', sortOrder: 3 },
+  { name: 'Wingsuit', sortOrder: 4 },
+  { name: 'Tracking', sortOrder: 5 },
+  { name: 'Angle', sortOrder: 6 },
+  { name: 'Canopy Piloting / Swooping', sortOrder: 7 },
+  { name: 'BASE', sortOrder: 8 },
+  { name: 'Water Jump', sortOrder: 9 },
+  { name: 'Demo Jump', sortOrder: 10 },
+]
+
 // Default aircraft types - sorted alphabetically
 const DEFAULT_AIRCRAFT = [
   'Antonov AN-2',
@@ -459,6 +490,34 @@ async function main() {
     } else {
       console.log(`  ⏭️  User already has ${existingJumpTypes} jump types, skipping...`)
     }
+  }
+
+  // ---- Backfill onboarding flags for all seed users ----
+  // Any user created before onboarding was added should be considered as having completed it
+  await prisma.user.updateMany({
+    where: { hasCompletedOnboarding: false },
+    data: { hasCompletedOnboarding: true },
+  })
+  console.log('\n  ✅ Backfilled hasCompletedOnboarding for all seed users')
+
+  // ---- Global Aircraft ----
+  const existingGlobalAircraft = await prisma.globalAircraft.count()
+  if (existingGlobalAircraft === 0) {
+    console.log('\n✈️  Seeding global aircraft...')
+    await prisma.globalAircraft.createMany({ data: GLOBAL_AIRCRAFT })
+    console.log(`  ✅ Created ${GLOBAL_AIRCRAFT.length} global aircraft`)
+  } else {
+    console.log(`\n  ⏭️  Global aircraft already seeded (${existingGlobalAircraft} records), skipping...`)
+  }
+
+  // ---- Global Jump Types ----
+  const existingGlobalJumpTypes = await prisma.globalJumpType.count()
+  if (existingGlobalJumpTypes === 0) {
+    console.log('🪂 Seeding global jump types...')
+    await prisma.globalJumpType.createMany({ data: GLOBAL_JUMP_TYPES })
+    console.log(`  ✅ Created ${GLOBAL_JUMP_TYPES.length} global jump types`)
+  } else {
+    console.log(`  ⏭️  Global jump types already seeded (${existingGlobalJumpTypes} records), skipping...`)
   }
 
   console.log('\n✅ Seed completed successfully!')

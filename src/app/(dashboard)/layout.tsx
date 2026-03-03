@@ -1,11 +1,29 @@
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 import { Header } from "@/components/layouts/Header"
 import { BottomNav } from "@/components/layouts/BottomNav"
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user) {
+    const profile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { hasCompletedOnboarding: true },
+    })
+
+    // New user or user who has not yet completed onboarding wizard
+    if (profile && !profile.hasCompletedOnboarding) {
+      redirect('/onboarding')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header />

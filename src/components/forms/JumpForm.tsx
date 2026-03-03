@@ -10,7 +10,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -34,14 +36,11 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
   const [gearComponents, setGearComponents] = useState<any[]>([])
   const [jumpTypes, setJumpTypes] = useState<any[]>([])
   const [aircrafts, setAircrafts] = useState<any[]>([])
+  const [globalAircrafts, setGlobalAircrafts] = useState<any[]>([])
+  const [globalJumpTypes, setGlobalJumpTypes] = useState<any[]>([])
   const [userProfile, setUserProfile] = useState<any>(null)
   const [unitPreference, setUnitPreference] = useState<"METRIC" | "IMPERIAL">("IMPERIAL")
   const manuallyEditedFreefallTimeRef = useRef(false)
-
-  // Debug logging for initialData
-  console.log("[JumpForm] Initializing with initialData:", initialData)
-  console.log("[JumpForm] Is copy mode:", !!initialData && !jumpId)
-  console.log("[JumpForm] Is edit mode:", !!initialData && !!jumpId)
 
   const [formData, setFormData] = useState({
     jumpNumber: initialData?.jumpNumber ?? 1,
@@ -65,8 +64,6 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
     hasHandcam: initialData?.hasHandcam ?? false,
   })
 
-  console.log("[JumpForm] Initial formData state:", formData)
-
   const router = useRouter()
   const { toast } = useToast()
 
@@ -78,55 +75,41 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
   const fetchOptions = async () => {
     try {
       const timestamp = Date.now()
-      const [rigRes, gearRes, jtRes, acRes, userRes] = await Promise.all([
+      const [rigRes, gearRes, jtRes, acRes, userRes, globalAcRes, globalJtRes] = await Promise.all([
         fetch(`/api/rigs?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/gear-components?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/user-jump-types?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/user-aircrafts?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/user?t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/global-aircrafts?t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/global-jump-types?t=${timestamp}`, { cache: 'no-store' }),
       ])
 
-      const [rigData, gearData, jtData, acData, userData] = await Promise.all([
+      const [rigData, gearData, jtData, acData, userData, globalAcData, globalJtData] = await Promise.all([
         rigRes.json(),
         gearRes.json(),
         jtRes.json(),
         acRes.json(),
         userRes.json(),
+        globalAcRes.ok ? globalAcRes.json() : { data: [] },
+        globalJtRes.ok ? globalJtRes.json() : { data: [] },
       ])
 
-      console.log("Fetched rigs for form:", rigData.data?.length || 0, "items")
-      console.log("Fetched gear components for form:", gearData.data?.length || 0, "items")
-      console.log("Fetched jump types for form:", jtData.data?.length || 0, "items")
-      console.log("Fetched aircrafts for form:", acData.data?.length || 0, "items")
-      console.log("User data:", userData?.currentJumpNumber)
       // Rigs come with rigComponents included from API
       setRigs(rigData.data || [])
       setGearComponents(gearData.data || [])
       setJumpTypes(jtData.data || [])
       setAircrafts(acData.data || [])
+      setGlobalAircrafts(globalAcData.data || [])
+      setGlobalJumpTypes(globalJtData.data || [])
       setUserProfile(userData)
 
       // Set unit preference from user profile
       if (userData?.unitPreference) {
         setUnitPreference(userData.unitPreference)
-        console.log("✓ Unit preference loaded:", userData.unitPreference)
-      } else {
-        console.log("⚠ No unit preference found, using default: IMPERIAL")
       }
 
-      console.log("[JumpForm] Checking if should apply defaults:", {
-        hasInitialData: !!initialData,
-        currentJumpNumber: userData?.currentJumpNumber,
-        willApply: !initialData && userData?.currentJumpNumber
-      })
-
       if (!initialData && userData?.currentJumpNumber) {
-        console.log("[JumpForm] Applying default values:", {
-          jumpNumber: userData.currentJumpNumber + 1,
-          defaultDropzoneId: userData.defaultDropzoneId,
-          defaultExitAltitude: userData.defaultExitAltitude,
-          defaultDeploymentAltitude: userData.defaultDeploymentAltitude,
-        })
         setFormData((prev) => ({
           ...prev,
           jumpNumber: userData.currentJumpNumber + 1,
@@ -134,8 +117,6 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
           exitAltitude: userData.defaultExitAltitude || prev.exitAltitude,
           deploymentAltitude: userData.defaultDeploymentAltitude || prev.deploymentAltitude,
         }))
-      } else {
-        console.log("[JumpForm] NOT applying defaults - initialData exists or no user data")
       }
     } catch (error) {
       console.error("Failed to fetch options:", error)
@@ -156,16 +137,12 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
     const threshold = unit === "IMPERIAL" ? 1000 : 305
     const freefallDistance = exitAlt - deployAlt
 
-    console.log("[Freefall Calc]", { exitAlt, deployAlt, freefallDistance, threshold, unit })
-
     if (freefallDistance <= 0) return 0
     if (freefallDistance <= threshold) return 10
 
     const remainingDistance = freefallDistance - threshold
     const additionalIntervals = Math.floor(remainingDistance / threshold)
     const result = 10 + additionalIntervals * 5
-
-    console.log("[Freefall Calc] Result:", result, "seconds")
     return result
   }
 
@@ -178,14 +155,6 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
       ? parseInt(formData.deploymentAltitude.toString())
       : 0
 
-    console.log("[Auto-calc] Altitude changed:", {
-      exitAlt,
-      deployAlt,
-      unitPreference,
-      currentFreefallTime: formData.freefallTime,
-      manuallyEdited: manuallyEditedFreefallTimeRef.current
-    })
-
     if (exitAlt && deployAlt && exitAlt > deployAlt) {
       const calculatedSeconds = calculateFreefallTime(
         exitAlt,
@@ -194,17 +163,10 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
       )
       const calculatedTime = secondsToHHMMSS(calculatedSeconds)
 
-      console.log("[Auto-calc] Calculated time:", calculatedTime)
-
       // Only auto-update if the user hasn't manually edited the field
       if (!manuallyEditedFreefallTimeRef.current) {
-        console.log("[Auto-calc] Setting freefall time to:", calculatedTime)
         setFormData((prev) => ({ ...prev, freefallTime: calculatedTime }))
-      } else {
-        console.log("[Auto-calc] Skipping auto-update - user manually edited field")
       }
-    } else {
-      console.log("[Auto-calc] Conditions not met for calculation")
     }
   }, [formData.exitAltitude, formData.deploymentAltitude, unitPreference])
 
@@ -259,6 +221,66 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Global aircrafts not already in user's personal list (matched by name)
+  const filteredGlobalAircrafts = globalAircrafts.filter(
+    (ga) => !aircrafts.some((ua) => ua.name.toLowerCase() === ga.name.toLowerCase())
+  )
+
+  // Global jump types not already in user's personal list (matched by name)
+  const filteredGlobalJumpTypes = globalJumpTypes.filter(
+    (gjt) => !jumpTypes.some((ujt) => ujt.name.toLowerCase() === gjt.name.toLowerCase())
+  )
+
+  // When a global aircraft is selected, auto-add it to the user's list
+  const handleAircraftChange = (value: string) => {
+    if (!value.startsWith('global:')) {
+      setFormData((prev) => ({ ...prev, aircraftId: value }))
+      return
+    }
+    const globalId = value.slice('global:'.length)
+    const globalAc = globalAircrafts.find((a) => a.id === globalId)
+    if (!globalAc) return
+
+    fetch('/api/user-aircrafts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: globalAc.name }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((newAc) => {
+        if (newAc) {
+          setAircrafts((prev) => [...prev, newAc])
+          setFormData((prev) => ({ ...prev, aircraftId: newAc.id }))
+        }
+      })
+      .catch(console.error)
+  }
+
+  // When a global jump type is selected, auto-add it to the user's list
+  const handleJumpTypeChange = (value: string) => {
+    if (!value.startsWith('global:')) {
+      setFormData((prev) => ({ ...prev, jumpTypeId: value }))
+      return
+    }
+    const globalId = value.slice('global:'.length)
+    const globalJt = globalJumpTypes.find((jt) => jt.id === globalId)
+    if (!globalJt) return
+
+    fetch('/api/user-jump-types', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: globalJt.name }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((newJt) => {
+        if (newJt) {
+          setJumpTypes((prev) => [...prev, newJt])
+          setFormData((prev) => ({ ...prev, jumpTypeId: newJt.id }))
+        }
+      })
+      .catch(console.error)
   }
 
   return (
@@ -317,19 +339,36 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
           <Label htmlFor="aircraftId">Aircraft</Label>
           <Select
             value={formData.aircraftId}
-            onValueChange={(value) =>
-              setFormData({ ...formData, aircraftId: value })
-            }
+            onValueChange={handleAircraftChange}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select aircraft" />
             </SelectTrigger>
             <SelectContent>
-              {aircrafts.map((ac) => (
-                <SelectItem key={ac.id} value={ac.id}>
-                  {ac.name}
-                </SelectItem>
-              ))}
+              {aircrafts.length > 0 && (
+                <SelectGroup>
+                  {filteredGlobalAircrafts.length > 0 && (
+                    <SelectLabel>My Aircraft</SelectLabel>
+                  )}
+                  {aircrafts.map((ac) => (
+                    <SelectItem key={ac.id} value={ac.id}>
+                      {ac.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
+              {filteredGlobalAircrafts.length > 0 && (
+                <SelectGroup>
+                  {aircrafts.length > 0 && (
+                    <SelectLabel>All Aircraft</SelectLabel>
+                  )}
+                  {filteredGlobalAircrafts.map((ac) => (
+                    <SelectItem key={`global:${ac.id}`} value={`global:${ac.id}`}>
+                      {ac.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -338,25 +377,42 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
           <Label htmlFor="jumpTypeId">Jump Type</Label>
           <Select
             value={formData.jumpTypeId}
-            onValueChange={(value) =>
-              setFormData({ ...formData, jumpTypeId: value })
-            }
+            onValueChange={handleJumpTypeChange}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select jump type" />
             </SelectTrigger>
             <SelectContent>
-              {jumpTypes.map((jt) => (
-                <SelectItem key={jt.id} value={jt.id}>
-                  {jt.name}
-                </SelectItem>
-              ))}
+              {jumpTypes.length > 0 && (
+                <SelectGroup>
+                  {filteredGlobalJumpTypes.length > 0 && (
+                    <SelectLabel>My Jump Types</SelectLabel>
+                  )}
+                  {jumpTypes.map((jt) => (
+                    <SelectItem key={jt.id} value={jt.id}>
+                      {jt.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
+              {filteredGlobalJumpTypes.length > 0 && (
+                <SelectGroup>
+                  {jumpTypes.length > 0 && (
+                    <SelectLabel>All Jump Types</SelectLabel>
+                  )}
+                  {filteredGlobalJumpTypes.map((jt) => (
+                    <SelectItem key={`global:${jt.id}`} value={`global:${jt.id}`}>
+                      {jt.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="exitAltitude">Exit Altitude (ft)</Label>
+          <Label htmlFor="exitAltitude">Exit Altitude ({unitPreference === "METRIC" ? "m" : "ft"})</Label>
           <Input
             id="exitAltitude"
             type="number"
@@ -369,7 +425,7 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="deploymentAltitude">Deployment Altitude (ft)</Label>
+          <Label htmlFor="deploymentAltitude">Deployment Altitude ({unitPreference === "METRIC" ? "m" : "ft"})</Label>
           <Input
             id="deploymentAltitude"
             type="number"
@@ -388,7 +444,6 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
             type="text"
             value={formData.freefallTime}
             onChange={(e) => {
-              console.log("[Manual Edit] User manually edited freefall time")
               manuallyEditedFreefallTimeRef.current = true
               setFormData({ ...formData, freefallTime: e.target.value })
             }}

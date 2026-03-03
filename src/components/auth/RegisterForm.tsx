@@ -43,7 +43,7 @@ export function RegisterForm() {
 
     setLoading(true)
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -54,7 +54,11 @@ export function RegisterForm() {
     if (error) {
       setError(error.message)
       setLoading(false)
+    } else if (data.session) {
+      // Email confirmation disabled — session returned immediately
+      router.push("/home")
     } else {
+      // Email confirmation enabled — show check your email screen
       setSuccess(true)
       setLoading(false)
     }

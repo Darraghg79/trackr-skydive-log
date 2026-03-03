@@ -13,13 +13,20 @@ export default async function DashboardLayout({
   const { data: { user } } = await supabase.auth.getUser()
 
   if (user) {
-    const profile = await prisma.user.findUnique({
+    let profile = await prisma.user.findUnique({
       where: { id: user.id },
       select: { hasCompletedOnboarding: true },
     })
 
+    // Brand new user — no Prisma record yet; create it and send to onboarding
+    if (!profile) {
+      await prisma.user.create({
+        data: { id: user.id, email: user.email! },
+      })
+    }
+
     // New user or user who has not yet completed onboarding wizard
-    if (profile && !profile.hasCompletedOnboarding) {
+    if (!profile || !profile.hasCompletedOnboarding) {
       redirect('/onboarding')
     }
   }

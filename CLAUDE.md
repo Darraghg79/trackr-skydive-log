@@ -42,7 +42,10 @@ if (authError || !user) {
 
 ### Supabase Clients
 - `src/lib/supabase/client.ts` — browser client using `createBrowserClient` from `@supabase/ssr` (for client components). **Must use `@supabase/ssr` not `@supabase/supabase-js` directly** — the SSR browser client stores the session in cookies, which the middleware can read. The plain JS client stores in localStorage only, which the middleware cannot see, breaking all post-login redirects.
-- `src/lib/supabase/server.ts` — server client using `createServerClient` from `@supabase/ssr` (for API routes and server components)
+- `src/lib/supabase/server.ts` — server client using `createServerClient` from `@supabase/ssr` (for API routes and server components). The `set`/`remove` cookie callbacks are wrapped in try-catch — Next.js Server Components cannot set cookies (only Route Handlers and Server Actions can). The middleware handles all token refresh and cookie writing; Server Components only need to read.
+
+### New User Bootstrap
+When a new user first hits any dashboard route, `(dashboard)/layout.tsx` calls `prisma.user.findUnique` — if `null`, it creates the record via `prisma.user.create` then redirects to `/onboarding`. This ensures the Prisma row exists before any onboarding block calls `PATCH /api/user`.
 
 ---
 

@@ -176,6 +176,7 @@ model Dropzone {
   invoices            Invoice[]
   defaultForUsers     User[]    @relation("DefaultDropzone")
 
+  @@unique([userId, name])
   @@index([userId])
   @@index([isActive])
   @@map("dropzones")
@@ -194,6 +195,7 @@ model UserJumpType {
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   jumps Jump[]
 
+  @@unique([userId, name])
   @@index([userId])
   @@map("user_jump_types")
 }
@@ -211,6 +213,7 @@ model UserAircraft {
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   jumps Jump[]
 
+  @@unique([userId, name])
   @@index([userId])
   @@map("user_aircrafts")
 }

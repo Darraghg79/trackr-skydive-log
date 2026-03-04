@@ -191,6 +191,31 @@ npx prisma db pull         # Pull schema from DB (only if needed)
 
 ---
 
+## Roadmap — Future Features
+
+### F-IMPORT-BG: Background CSV Import (Priority: High)
+**Problem:** The current import runs as sequential browser fetch calls. If the screen sleeps or the browser tab loses focus mid-import, JavaScript pauses and the import fails. With 1,400+ jumps this requires multiple retry attempts, which is a poor first-run experience for new users.
+
+**Proposed Architecture:**
+1. User uploads CSV → stored immediately in Supabase Storage (one fast call)
+2. API returns `{ importId }` — browser is done, no polling required during processing
+3. A background job (Vercel Cron or Supabase Edge Function triggered on storage upload) picks up the file and processes it at the server level
+4. Job writes status to a new `ImportJob` table: `pending → processing → complete | failed`
+5. Import results page polls `GET /api/imports/[id]` every 3s and shows live progress
+6. On completion, the CSV is deleted from storage and the user is notified
+
+**New pieces needed:**
+- `ImportJob` Prisma model (`id`, `userId`, `status`, `filename`, `totalRows`, `importedCount`, `skippedCount`, `errors`, `createdAt`, `completedAt`)
+- `POST /api/imports` — accepts file, saves to Supabase Storage, creates ImportJob record, returns immediately
+- `GET /api/imports/[id]` — returns job status + progress
+- `POST /api/imports/[id]/process` — the actual processing logic (called by the background job)
+- Vercel Cron job or Supabase Edge Function webhook to trigger processing
+- Updated `settings/import/page.tsx` — upload step fires once, then shows polling progress UI
+
+**Note:** This is a Claude Code task (new routes, new DB model, Supabase Storage integration, background job config).
+
+---
+
 ## Adding a New Feature — Checklist
 
 1. Write spec in `pm/feature-specs/`

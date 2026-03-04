@@ -23,8 +23,6 @@ export async function GET(request: NextRequest) {
     const aircraft = searchParams.get("aircraft")
     const gear = searchParams.get("gear")
 
-    console.log("Filtered jumps request:", { year, type, dropzone, aircraft, gear })
-
     // Build where clause for Prisma
     const where: any = { userId: user.id }
 
@@ -59,7 +57,6 @@ export async function GET(request: NextRequest) {
       // Filter by gear component name (format: "Name (TYPE)")
       // Extract the component name from the display format
       const componentName = gear.replace(/\s*\([^)]*\)\s*$/, "").trim()
-      console.log("Filtering by gear component:", componentName)
       where.gearComponents = {
         some: {
           gearComponent: {
@@ -93,8 +90,6 @@ export async function GET(request: NextRequest) {
       orderBy: { jumpNumber: "desc" },
     })
 
-    console.log("Found jumps:", jumps.length)
-
     // If filtering by gear, fetch the component's previousJumpCount
     let gearMetadata = null
     if (gear) {
@@ -120,7 +115,6 @@ export async function GET(request: NextRequest) {
           loggedJumps: jumps.length,
           totalJumps: jumps.length + gearComponent.previousJumpCount,
         }
-        console.log("Gear metadata:", gearMetadata)
       }
     }
 

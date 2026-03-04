@@ -58,25 +58,6 @@ export default function DropzoneInvoicePage() {
       }
       setJumps(data.data || [])
       setDropzone(data.dropzone)
-
-      // Debug logging - log each uninvoiced jump
-      console.log('=== FRONTEND: UNINVOICED JUMPS LOADED ===')
-      console.log('Dropzone ID:', params.id)
-      console.log('Dropzone Name:', data.dropzone?.name)
-      console.log('Total uninvoiced jumps:', data.data?.length || 0)
-      console.log('\nDetails of each uninvoiced jump:')
-      data.data?.forEach((jump: any, index: number) => {
-        console.log(`Jump ${index + 1}:`, {
-          id: jump.id,
-          jumpNumber: jump.jumpNumber,
-          date: jump.date,
-          workJumpType: jump.workJumpType,
-          customerName: jump.customerName,
-          hasHandcam: jump.hasHandcam,
-          canInvoiceHandcam: jump.canInvoiceHandcam,
-        })
-      })
-      console.log('=== END UNINVOICED JUMPS ===\n')
     } catch (error) {
       toast({
         title: "Failed to load uninvoiced jumps",
@@ -192,37 +173,6 @@ export default function DropzoneInvoicePage() {
         lineItems,
       }
 
-      // Debug logging - log invoice creation request
-      console.log('=== FRONTEND: CREATING INVOICE ===')
-      console.log('Dropzone ID:', params.id)
-      console.log('Invoice Number:', invoiceNumber)
-      console.log('Total jumps being invoiced:', jumps.length)
-      console.log('Total line items:', lineItems.length)
-      console.log('\nJump IDs being sent:')
-      const uniqueJumpIds = Array.from(new Set(lineItems.map(li => li.jumpId)))
-      uniqueJumpIds.forEach((jumpId, index) => {
-        const jump = jumps.find(j => j.id === jumpId)
-        console.log(`${index + 1}. Jump ID: ${jumpId} (Jump #${jump?.jumpNumber})`)
-      })
-      console.log('\nAll line items:')
-      lineItems.forEach((item, index) => {
-        const jump = jumps.find(j => j.id === item.jumpId)
-        console.log(`${index + 1}.`, {
-          jumpId: item.jumpId,
-          jumpNumber: jump?.jumpNumber,
-          itemType: item.itemType,
-          workJumpType: item.workJumpType,
-          unitPrice: item.unitPrice,
-        })
-      })
-      console.log('\nInvoice totals:', {
-        subtotal,
-        tax,
-        total,
-        currency: dropzone.currency,
-      })
-      console.log('=== END CREATE INVOICE REQUEST ===\n')
-
       const res = await fetch("/api/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -232,18 +182,8 @@ export default function DropzoneInvoicePage() {
       const data = await res.json()
 
       if (!res.ok) {
-        console.error('=== INVOICE CREATION FAILED ===')
-        console.error('Status:', res.status)
-        console.error('Error:', data.error)
-        console.error('Full response:', data)
-        console.error('=== END ERROR ===\n')
         throw new Error(data.error || "Failed to create invoice")
       }
-
-      console.log('=== INVOICE CREATED SUCCESSFULLY ===')
-      console.log('Invoice ID:', data.id)
-      console.log('Invoice Number:', data.invoiceNumber)
-      console.log('=== END SUCCESS ===\n')
 
       toast({
         title: "Invoice created successfully",
@@ -252,11 +192,6 @@ export default function DropzoneInvoicePage() {
 
       router.push(`/invoices/${data.id}`)
     } catch (error) {
-      console.error('=== EXCEPTION DURING INVOICE CREATION ===')
-      console.error('Error:', error)
-      console.error('Error message:', error instanceof Error ? error.message : 'Unknown error')
-      console.error('=== END EXCEPTION ===\n')
-
       toast({
         title: "Failed to create invoice",
         description:
@@ -297,6 +232,11 @@ export default function DropzoneInvoicePage() {
 
   const { subtotal, tax, total, taxRate, itemCount } = calculateTotals()
 
+  const hasRatesConfigured = !!(
+    dropzone.rateAFF || dropzone.rateTandem || dropzone.rateCamera ||
+    dropzone.rateCoach || dropzone.rateHandcam
+  )
+
   return (
     <div className="space-y-6 pb-80 md:pb-32">
       <div className="flex items-center gap-4">
@@ -310,6 +250,20 @@ export default function DropzoneInvoicePage() {
           </p>
         </div>
       </div>
+
+      {!hasRatesConfigured && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-4">
+          <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+            No rates configured for this dropzone
+          </p>
+          <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+            Set at least one rate (AFF, Tandem, Camera, Coach, or Handcam) before creating an invoice.{" "}
+            <a href={`/dropzones/${params.id}`} className="underline font-medium">
+              Edit dropzone rates →
+            </a>
+          </p>
+        </div>
+      )}
 
       <div className="space-y-3">
         {jumps.map((jump) => {
@@ -407,7 +361,7 @@ export default function DropzoneInvoicePage() {
               className="w-full"
               size="lg"
               onClick={handleCreateInvoice}
-              disabled={submitting}
+              disabled={submitting || !hasRatesConfigured}
             >
               {submitting ? "Creating Invoice..." : "Create Invoice"}
             </Button>

@@ -27,15 +27,33 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Get the max jump number from the user's actual jumps
-    const maxJumpResult = await prisma.jump.aggregate({
-      where: { userId: user.id },
-      _max: { jumpNumber: true },
-    })
+    // Server-side jump aggregates
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
+    const [maxJumpResult, thisMonthCount, freefallSum, cutawayCount] = await Promise.all([
+      prisma.jump.aggregate({
+        where: { userId: user.id },
+        _max: { jumpNumber: true },
+      }),
+      prisma.jump.count({
+        where: { userId: user.id, date: { gte: startOfMonth } },
+      }),
+      prisma.jump.aggregate({
+        where: { userId: user.id },
+        _sum: { freefallTime: true },
+      }),
+      prisma.jump.count({
+        where: { userId: user.id, isCutaway: true },
+      }),
+    ])
 
     const totalJumps = maxJumpResult._max.jumpNumber || 0
+    const thisMonthJumps = thisMonthCount
+    const totalFreefallSeconds = (freefallSum._sum.freefallTime || 0) + (profile.startingFreefallTime || 0)
+    const totalCutaways = cutawayCount + (profile.startingCutaways || 0)
 
-    return NextResponse.json({ ...profile, totalJumps })
+    return NextResponse.json({ ...profile, totalJumps, thisMonthJumps, totalFreefallSeconds, totalCutaways })
   } catch (error) {
     console.error('GET /api/user error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

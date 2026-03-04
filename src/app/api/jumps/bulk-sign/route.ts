@@ -31,12 +31,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Signature data is required' }, { status: 400 })
     }
 
-    console.log('=== BULK SIGN REQUEST ===')
-    console.log('User ID:', user.id)
-    console.log('Jump IDs:', jumpIds)
-    console.log('License Number:', licenseNumber)
-    console.log('Signature Data Length:', signatureData.length)
-
     // Use transaction to ensure all signatures are created atomically
     const result = await prisma.$transaction(async (tx) => {
       // Verify all jumps belong to the user
@@ -54,11 +48,8 @@ export async function POST(request: NextRequest) {
       if (jumps.length !== jumpIds.length) {
         const foundIds = jumps.map(j => j.id)
         const missingIds = jumpIds.filter(id => !foundIds.includes(id))
-        console.error('Some jumps not found or unauthorized:', missingIds)
         throw new Error(`${missingIds.length} jump(s) not found or unauthorized`)
       }
-
-      console.log('All jumps verified. Creating signatures...')
 
       // Create signatures for all jumps
       const signatures = await Promise.all(
@@ -78,17 +69,11 @@ export async function POST(request: NextRequest) {
         )
       )
 
-      console.log('Created signatures:', signatures.length)
-
       return {
         signatures,
         jumps,
       }
     })
-
-    console.log('=== BULK SIGN SUCCESS ===')
-    console.log('Signatures created:', result.signatures.length)
-    console.log('Jump numbers signed:', result.jumps.map(j => j.jumpNumber).join(', '))
 
     return NextResponse.json({
       success: true,

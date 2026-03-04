@@ -142,7 +142,6 @@ export async function POST(req: NextRequest) {
           })
           dropzoneId = newDropzone.id
           dropzoneMap.set(dropzoneName.toLowerCase(), dropzoneId)
-          console.log(`Auto-created dropzone: ${dropzoneName}`)
         }
 
         // Optional fields - find or create aircraft
@@ -160,7 +159,6 @@ export async function POST(req: NextRequest) {
             })
             aircraftId = newAircraft.id
             aircraftMap.set(aircraftName.toLowerCase(), aircraftId)
-            console.log(`Auto-created aircraft: ${aircraftName}`)
           }
         }
 
@@ -179,7 +177,6 @@ export async function POST(req: NextRequest) {
             })
             jumpTypeId = newJumpType.id
             jumpTypeMap.set(jumpTypeName.toLowerCase(), jumpTypeId)
-            console.log(`Auto-created jump type: ${jumpTypeName}`)
           }
         }
 
@@ -276,7 +273,6 @@ export async function POST(req: NextRequest) {
               })
               gearComponentId = newGearComponent.id
               existingGearMap.set(normalizedName, gearComponentId)
-              console.log(`Auto-created gear component: ${componentName}`)
             }
 
             gearComponentIds.push(gearComponentId)
@@ -402,7 +398,6 @@ export async function POST(req: NextRequest) {
       hasMoreErrors: errors.length > 50,
     }
 
-    console.log("Import complete:", summary)
 
     return NextResponse.json(summary)
   } catch (error) {

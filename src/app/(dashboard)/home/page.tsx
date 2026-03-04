@@ -17,6 +17,7 @@ interface DashboardStats {
   nextJumpNumber: number
   totalFreefallTime: number
   totalCutaways: number
+  thisMonthJumps: number
   recentJumps: any[]
   unitPreference: UnitPreference
 }
@@ -44,8 +45,9 @@ export default function DashboardPage() {
       setStats({
         totalJumps: userData.totalJumps || 0,
         nextJumpNumber: (userData.totalJumps || 0) + 1,
-        totalFreefallTime: userData.startingFreefallTime || 0,
-        totalCutaways: userData.startingCutaways || 0,
+        totalFreefallTime: userData.totalFreefallSeconds || 0,
+        totalCutaways: userData.totalCutaways || 0,
+        thisMonthJumps: userData.thisMonthJumps || 0,
         recentJumps: jumpsData.data || [],
         unitPreference: userData.unitPreference || "IMPERIAL",
       })
@@ -124,14 +126,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats?.recentJumps?.filter((j) => {
-                const jumpDate = new Date(j.date)
-                const now = new Date()
-                return (
-                  jumpDate.getMonth() === now.getMonth() &&
-                  jumpDate.getFullYear() === now.getFullYear()
-                )
-              }).length || 0}
+              {stats?.thisMonthJumps || 0}
             </div>
             <p className="text-xs text-muted-foreground">Jumps this month</p>
           </CardContent>

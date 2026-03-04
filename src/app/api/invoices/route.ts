@@ -164,14 +164,6 @@ export async function POST(request: NextRequest) {
       }
 
       // Verify all jumps belong to user and are work jumps
-      console.log('=== INVOICE VALIDATION DEBUG START ===')
-      console.log('Expected criteria:', {
-        userId: user.id,
-        dropzoneId: invoiceData.dropzoneId,
-        requestedJumpIds: jumpIds,
-        requestedCount: jumpIds.length,
-      })
-
       const jumps = await tx.jump.findMany({
         where: {
           id: { in: jumpIds },
@@ -181,79 +173,11 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      console.log('Found jumps:', {
-        foundCount: jumps.length,
-        foundJumpIds: jumps.map(j => j.id),
-      })
-
-      // Log detailed information about each found jump
-      console.log('Details of each found jump:')
-      jumps.forEach(jump => {
-        console.log({
-          id: jump.id,
-          jumpNumber: jump.jumpNumber,
-          dropzoneId: jump.dropzoneId,
-          userId: jump.userId,
-          isWorkJump: jump.isWorkJump,
-          matchesExpectedDropzone: jump.dropzoneId === invoiceData.dropzoneId,
-          matchesExpectedUser: jump.userId === user.id,
-        })
-      })
-
       if (jumps.length !== jumpIds.length) {
-        // Log detailed error for debugging
         const foundIds = jumps.map(j => j.id)
-        const missingIds = jumpIds.filter(id => !foundIds.includes(id))
-
-        console.error('=== VALIDATION FAILURE ===')
-        console.error('Missing jump IDs:', missingIds)
-        console.error('Requested:', jumpIds.length, 'Found:', jumps.length)
-
-        // Try to fetch the missing jumps without filters to see why they failed
-        const missingJumps = await tx.jump.findMany({
-          where: {
-            id: { in: missingIds },
-          },
-          select: {
-            id: true,
-            jumpNumber: true,
-            dropzoneId: true,
-            userId: true,
-            isWorkJump: true,
-          },
-        })
-
-        console.error('Details of missing jumps (if they exist):')
-        missingJumps.forEach(jump => {
-          console.error({
-            id: jump.id,
-            jumpNumber: jump.jumpNumber,
-            dropzoneId: jump.dropzoneId,
-            expectedDropzoneId: invoiceData.dropzoneId,
-            dropzoneMatches: jump.dropzoneId === invoiceData.dropzoneId,
-            userId: jump.userId,
-            expectedUserId: user.id,
-            userMatches: jump.userId === user.id,
-            isWorkJump: jump.isWorkJump,
-            failureReason: !jump.isWorkJump ? 'NOT_WORK_JUMP' :
-                          jump.dropzoneId !== invoiceData.dropzoneId ? 'WRONG_DROPZONE' :
-                          jump.userId !== user.id ? 'WRONG_USER' : 'UNKNOWN',
-          })
-        })
-
-        if (missingJumps.length < missingIds.length) {
-          console.error('Some jump IDs do not exist in database:',
-            missingIds.filter(id => !missingJumps.find(j => j.id === id))
-          )
-        }
-
-        console.error('=== VALIDATION DEBUG END ===')
-        throw new Error(`Failed to validate ${missingIds.length} jump(s). Check server logs for detailed breakdown.`)
+        const missingCount = jumpIds.filter(id => !foundIds.includes(id)).length
+        throw new Error(`Failed to validate ${missingCount} jump(s) — jumps may not be work jumps or belong to this dropzone.`)
       }
-
-      console.log('=== VALIDATION SUCCESS ===')
-      console.log('All', jumps.length, 'jumps validated successfully')
-      console.log('=== INVOICE VALIDATION DEBUG END ===\n')
 
       // Create new invoice
       invoice = await tx.invoice.create({

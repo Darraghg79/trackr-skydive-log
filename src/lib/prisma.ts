@@ -4,12 +4,21 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
+// In serverless each function invocation can spin up a new Prisma client.
+// Without connection_limit=1, Prisma opens a pool per instance and quickly
+// exhausts Supabase's Session mode limit ("max clients reached").
+// connection_limit=1 + pool_timeout=0 is the standard Prisma+Supabase serverless fix.
+function buildDatasourceUrl(url: string | undefined): string | undefined {
+  if (!url) return url
+  const separator = url.includes('?') ? '&' : '?'
+  return `${url}${separator}connection_limit=1&pool_timeout=0`
+}
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-    // Disable prepared statements for Supabase connection pooling compatibility
-    datasourceUrl: process.env.DATABASE_URL,
+    datasourceUrl: buildDatasourceUrl(process.env.DATABASE_URL),
   })
 
 if (process.env.NODE_ENV !== 'production') {

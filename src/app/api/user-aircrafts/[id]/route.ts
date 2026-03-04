@@ -79,12 +79,14 @@ export async function DELETE(
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
+
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const reassignToId = searchParams.get('reassignToId')
 
     const existing = await prisma.userAircraft.findFirst({
       where: { id, userId: user.id },
@@ -94,9 +96,42 @@ export async function DELETE(
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
+    const jumpCount = await prisma.jump.count({
+      where: { aircraftId: id, userId: user.id },
+    })
+
+    if (reassignToId) {
+      const targetAircraft = await prisma.userAircraft.findFirst({
+        where: { id: reassignToId, userId: user.id },
+      })
+
+      if (!targetAircraft) {
+        return NextResponse.json(
+          { error: 'Target aircraft not found' },
+          { status: 400 }
+        )
+      }
+
+      await prisma.jump.updateMany({
+        where: { aircraftId: id, userId: user.id },
+        data: { aircraftId: reassignToId },
+      })
+    } else if (jumpCount > 0) {
+      return NextResponse.json(
+        {
+          error: 'Cannot delete aircraft with jumps without reassignment',
+          details: `This aircraft is used by ${jumpCount} jump(s). Use merge to reassign them first.`
+        },
+        { status: 400 }
+      )
+    }
+
     await prisma.userAircraft.delete({ where: { id } })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({
+      success: true,
+      jumpsReassigned: reassignToId ? jumpCount : 0,
+    })
   } catch (error) {
     console.error('DELETE /api/user-aircrafts/[id] error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -7,7 +7,7 @@ import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { useToast } from "@/hooks/useToast"
-import { Trash2, AlertTriangle, Loader2 } from "lucide-react"
+import { Trash2, GitMerge, AlertTriangle, Loader2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -32,12 +32,12 @@ export default function DropzoneDetailPage() {
   const [dropzone, setDropzone] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showDelete, setShowDelete] = useState(false)
-  const [showReassign, setShowReassign] = useState(false)
+  const [showMerge, setShowMerge] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [checkingJumps, setCheckingJumps] = useState(false)
   const [jumpCount, setJumpCount] = useState(0)
   const [otherDropzones, setOtherDropzones] = useState<any[]>([])
-  const [reassignToId, setReassignToId] = useState<string>("")
+  const [mergeIntoId, setMergeIntoId] = useState<string>("")
 
   useEffect(() => {
     fetchDropzone()
@@ -57,53 +57,76 @@ export default function DropzoneDetailPage() {
     }
   }
 
+  const fetchOtherDropzones = async () => {
+    const res = await fetch("/api/dropzones?orderBy=name&order=asc")
+    const data = await res.json()
+    return (data.data || []).filter((dz: any) => dz.id !== params.id)
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
   const handleDeleteClick = async () => {
     setCheckingJumps(true)
     try {
-      // Check if any jumps use this dropzone
-      const [jumpsRes, dropzonesRes] = await Promise.all([
-        fetch(`/api/jumps?dropzoneId=${params.id}`),
-        fetch("/api/dropzones?orderBy=name&order=asc")
+      const [jumpsRes, others] = await Promise.all([
+        fetch(`/api/jumps?dropzoneId=${params.id}&limit=1`),
+        fetchOtherDropzones(),
       ])
-
       const jumpsData = await jumpsRes.json()
-      const dropzonesData = await dropzonesRes.json()
-
       const count = jumpsData.pagination?.total || 0
       setJumpCount(count)
+      setOtherDropzones(others)
 
       if (count > 0) {
-        // Filter out the current dropzone from the list
-        const others = (dropzonesData.data || []).filter((dz: any) => dz.id !== params.id)
-        setOtherDropzones(others)
-
         if (others.length === 0) {
           toast({
             title: "Cannot delete",
-            description: "This dropzone is used by jumps and you have no other dropzones to reassign to. Create another dropzone first.",
-            variant: "destructive"
+            description: "This dropzone has jumps and you have no other dropzones to reassign to. Create another dropzone first.",
+            variant: "destructive",
           })
           return
         }
-
-        // Show reassignment dialog
-        setShowReassign(true)
+        setMergeIntoId("")
+        setShowMerge(true)
       } else {
-        // No jumps use this, show simple confirmation
         setShowDelete(true)
       }
-    } catch (error) {
-      console.error("Failed to check jumps:", error)
-      toast({
-        title: "Error",
-        description: "Failed to check jump usage",
-        variant: "destructive"
-      })
+    } catch {
+      toast({ title: "Error", description: "Failed to check jump usage", variant: "destructive" })
     } finally {
       setCheckingJumps(false)
     }
   }
 
+  // ── Merge ─────────────────────────────────────────────────────────────────
+  const handleMergeClick = async () => {
+    setCheckingJumps(true)
+    try {
+      const [jumpsRes, others] = await Promise.all([
+        fetch(`/api/jumps?dropzoneId=${params.id}&limit=1`),
+        fetchOtherDropzones(),
+      ])
+      const jumpsData = await jumpsRes.json()
+      setJumpCount(jumpsData.pagination?.total || 0)
+      setOtherDropzones(others)
+
+      if (others.length === 0) {
+        toast({
+          title: "No other dropzones",
+          description: "You need at least one other dropzone to merge into.",
+          variant: "destructive",
+        })
+        return
+      }
+      setMergeIntoId("")
+      setShowMerge(true)
+    } catch {
+      toast({ title: "Error", description: "Failed to load dropzones", variant: "destructive" })
+    } finally {
+      setCheckingJumps(false)
+    }
+  }
+
+  // ── Execute delete / merge ────────────────────────────────────────────────
   const handleDelete = async (reassignTo?: string) => {
     setDeleting(true)
     try {
@@ -111,86 +134,84 @@ export default function DropzoneDetailPage() {
         ? `/api/dropzones/${params.id}?reassignToId=${reassignTo}`
         : `/api/dropzones/${params.id}`
 
-      const res = await fetch(url, {
-        method: "DELETE",
-      })
-
+      const res = await fetch(url, { method: "DELETE" })
       const data = await res.json()
 
       if (!res.ok) {
         toast({
           title: "Failed to delete dropzone",
           description: data.details || data.error || "An error occurred",
-          variant: "destructive"
+          variant: "destructive",
         })
         setDeleting(false)
         return
       }
 
       toast({
-        title: "Dropzone deleted",
+        title: reassignTo ? "Dropzone merged" : "Dropzone deleted",
         description: data.jumpsReassigned > 0
-          ? `${data.jumpsReassigned} jumps were reassigned`
-          : undefined
+          ? `${data.jumpsReassigned} jump${data.jumpsReassigned !== 1 ? "s" : ""} reassigned`
+          : undefined,
       })
 
       setShowDelete(false)
-      setShowReassign(false)
+      setShowMerge(false)
       router.push("/dropzones")
       router.refresh()
-    } catch (error) {
-      console.error("Error deleting dropzone:", error)
-      toast({
-        title: "Failed to delete dropzone",
-        description: "An unexpected error occurred",
-        variant: "destructive"
-      })
+    } catch {
+      toast({ title: "Failed to delete dropzone", description: "An unexpected error occurred", variant: "destructive" })
       setDeleting(false)
     }
   }
 
-  const handleReassignAndDelete = () => {
-    if (!reassignToId) {
-      toast({
-        title: "Please select a dropzone",
-        description: "Choose which dropzone to reassign jumps to",
-        variant: "destructive"
-      })
+  const handleMergeConfirm = () => {
+    if (!mergeIntoId) {
+      toast({ title: "Please select a dropzone", description: "Choose which dropzone to merge into", variant: "destructive" })
       return
     }
-    handleDelete(reassignToId)
+    handleDelete(mergeIntoId)
   }
 
-  if (loading) {
-    return <PageLoader />
-  }
-
-  if (!dropzone) {
-    return null
-  }
+  if (loading) return <PageLoader />
+  if (!dropzone) return null
 
   return (
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Edit {dropzone.name}</h1>
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={handleDeleteClick}
-          disabled={checkingJumps}
-        >
-          {checkingJumps ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Trash2 className="h-4 w-4 mr-2" />
-          )}
-          Delete
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleMergeClick}
+            disabled={checkingJumps}
+          >
+            {checkingJumps ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <GitMerge className="h-4 w-4 mr-2" />
+            )}
+            Merge
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleDeleteClick}
+            disabled={checkingJumps}
+          >
+            {checkingJumps ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4 mr-2" />
+            )}
+            Delete
+          </Button>
+        </div>
       </div>
 
       <DropzoneForm initialData={dropzone} dropzoneId={params.id as string} />
 
-      {/* Simple Delete Confirmation (no jumps using this dropzone) */}
+      {/* Simple Delete Confirmation (no jumps) */}
       <ConfirmDialog
         open={showDelete}
         onClose={() => setShowDelete(false)}
@@ -200,31 +221,32 @@ export default function DropzoneDetailPage() {
         loading={deleting}
       />
 
-      {/* Reassignment Dialog (jumps are using this dropzone) */}
-      <Dialog open={showReassign} onOpenChange={setShowReassign}>
+      {/* Merge Dialog */}
+      <Dialog open={showMerge} onOpenChange={setShowMerge}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              Reassign Jumps
+              <GitMerge className="h-5 w-5 text-primary" />
+              Merge Dropzone
             </DialogTitle>
             <DialogDescription>
-              This dropzone is used by {jumpCount} jump{jumpCount !== 1 ? "s" : ""}.
-              Please select another dropzone to reassign them to before deleting.
+              All {jumpCount > 0 ? `${jumpCount} jump${jumpCount !== 1 ? "s" : ""} from` : "jumps from"}{" "}
+              <strong>{dropzone.name}</strong> will be moved to the selected dropzone, then{" "}
+              <strong>{dropzone.name}</strong> will be deleted.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="reassignTo">Reassign jumps to:</Label>
-              <Select value={reassignToId} onValueChange={setReassignToId}>
-                <SelectTrigger id="reassignTo">
+              <Label htmlFor="mergeInto">Merge into:</Label>
+              <Select value={mergeIntoId} onValueChange={setMergeIntoId}>
+                <SelectTrigger id="mergeInto">
                   <SelectValue placeholder="Select a dropzone" />
                 </SelectTrigger>
                 <SelectContent>
                   {otherDropzones.map((dz) => (
                     <SelectItem key={dz.id} value={dz.id}>
-                      {dz.name} ({dz.city || dz.country})
+                      {dz.name}{dz.city ? ` — ${dz.city}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -233,25 +255,17 @@ export default function DropzoneDetailPage() {
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowReassign(false)}
-              disabled={deleting}
-            >
+            <Button variant="outline" onClick={() => setShowMerge(false)} disabled={deleting}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleReassignAndDelete}
-              disabled={deleting || !reassignToId}
-            >
+            <Button onClick={handleMergeConfirm} disabled={deleting || !mergeIntoId}>
               {deleting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
+                  Merging...
                 </>
               ) : (
-                "Reassign & Delete"
+                "Merge & Delete"
               )}
             </Button>
           </DialogFooter>

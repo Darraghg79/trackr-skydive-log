@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     const order = searchParams.get('order') || 'desc'
     const dropzoneId = searchParams.get('dropzoneId')
     const jumpTypeId = searchParams.get('jumpTypeId')
+    const aircraftId = searchParams.get('aircraftId')
     const isWorkJump = searchParams.get('isWorkJump')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
     const where: any = { userId: user.id }
     if (dropzoneId) where.dropzoneId = dropzoneId
     if (jumpTypeId) where.jumpTypeId = jumpTypeId
+    if (aircraftId) where.aircraftId = aircraftId
     if (isWorkJump !== null) where.isWorkJump = isWorkJump === 'true'
     if (startDate || endDate) {
       where.date = {}

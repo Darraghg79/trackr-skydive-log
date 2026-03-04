@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { UserJumpTypeForm } from "@/components/forms/UserJumpTypeForm"
 import { Button } from "@/components/ui/button"
 import { PageLoader } from "@/components/shared/LoadingSpinner"
-import { Trash2, AlertTriangle, Loader2 } from "lucide-react"
+import { Trash2, GitMerge, Loader2 } from "lucide-react"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import {
   Dialog,
@@ -32,17 +32,15 @@ export default function JumpTypeDetailPage() {
   const [jumpType, setJumpType] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showDelete, setShowDelete] = useState(false)
-  const [showReassign, setShowReassign] = useState(false)
+  const [showMerge, setShowMerge] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [checkingJumps, setCheckingJumps] = useState(false)
   const [jumpCount, setJumpCount] = useState(0)
   const [otherJumpTypes, setOtherJumpTypes] = useState<any[]>([])
-  const [reassignToId, setReassignToId] = useState<string>("")
+  const [mergeIntoId, setMergeIntoId] = useState<string>("")
 
   useEffect(() => {
-    if (params.id) {
-      fetchJumpType()
-    }
+    if (params.id) fetchJumpType()
   }, [params.id])
 
   const fetchJumpType = async () => {
@@ -59,53 +57,76 @@ export default function JumpTypeDetailPage() {
     }
   }
 
+  const fetchOtherJumpTypes = async () => {
+    const res = await fetch("/api/user-jump-types")
+    const data = await res.json()
+    return (data.data || []).filter((jt: any) => jt.id !== params.id)
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
   const handleDeleteClick = async () => {
     setCheckingJumps(true)
     try {
-      // Check if any jumps use this jump type
-      const [jumpsRes, jumpTypesRes] = await Promise.all([
-        fetch(`/api/jumps?jumpTypeId=${params.id}`),
-        fetch("/api/user-jump-types")
+      const [jumpsRes, others] = await Promise.all([
+        fetch(`/api/jumps?jumpTypeId=${params.id}&limit=1`),
+        fetchOtherJumpTypes(),
       ])
-
       const jumpsData = await jumpsRes.json()
-      const jumpTypesData = await jumpTypesRes.json()
-
       const count = jumpsData.pagination?.total || 0
       setJumpCount(count)
+      setOtherJumpTypes(others)
 
       if (count > 0) {
-        // Filter out the current jump type from the list
-        const others = (jumpTypesData.data || []).filter((jt: any) => jt.id !== params.id)
-        setOtherJumpTypes(others)
-
         if (others.length === 0) {
           toast({
             title: "Cannot delete",
             description: "This jump type is used by jumps and you have no other jump types to reassign to. Create another jump type first.",
-            variant: "destructive"
+            variant: "destructive",
           })
           return
         }
-
-        // Show reassignment dialog
-        setShowReassign(true)
+        setMergeIntoId("")
+        setShowMerge(true)
       } else {
-        // No jumps use this, show simple confirmation
         setShowDelete(true)
       }
-    } catch (error) {
-      console.error("Failed to check jumps:", error)
-      toast({
-        title: "Error",
-        description: "Failed to check jump usage",
-        variant: "destructive"
-      })
+    } catch {
+      toast({ title: "Error", description: "Failed to check jump usage", variant: "destructive" })
     } finally {
       setCheckingJumps(false)
     }
   }
 
+  // ── Merge ─────────────────────────────────────────────────────────────────
+  const handleMergeClick = async () => {
+    setCheckingJumps(true)
+    try {
+      const [jumpsRes, others] = await Promise.all([
+        fetch(`/api/jumps?jumpTypeId=${params.id}&limit=1`),
+        fetchOtherJumpTypes(),
+      ])
+      const jumpsData = await jumpsRes.json()
+      setJumpCount(jumpsData.pagination?.total || 0)
+      setOtherJumpTypes(others)
+
+      if (others.length === 0) {
+        toast({
+          title: "No other jump types",
+          description: "You need at least one other jump type to merge into.",
+          variant: "destructive",
+        })
+        return
+      }
+      setMergeIntoId("")
+      setShowMerge(true)
+    } catch {
+      toast({ title: "Error", description: "Failed to load jump types", variant: "destructive" })
+    } finally {
+      setCheckingJumps(false)
+    }
+  }
+
+  // ── Execute delete / merge ────────────────────────────────────────────────
   const handleDelete = async (reassignTo?: string) => {
     setDeleting(true)
     try {
@@ -113,55 +134,46 @@ export default function JumpTypeDetailPage() {
         ? `/api/user-jump-types/${params.id}?reassignToId=${reassignTo}`
         : `/api/user-jump-types/${params.id}`
 
-      const res = await fetch(url, {
-        method: "DELETE",
-      })
-
-      if (!res.ok) throw new Error("Failed to delete")
-
+      const res = await fetch(url, { method: "DELETE" })
       const data = await res.json()
 
+      if (!res.ok) {
+        toast({
+          title: "Failed to delete jump type",
+          description: data.details || data.error || "An error occurred",
+          variant: "destructive",
+        })
+        setDeleting(false)
+        return
+      }
+
       toast({
-        title: "Jump type deleted",
+        title: reassignTo ? "Jump type merged" : "Jump type deleted",
         description: data.jumpsReassigned > 0
-          ? `${data.jumpsReassigned} jumps were reassigned`
-          : undefined
+          ? `${data.jumpsReassigned} jump${data.jumpsReassigned !== 1 ? "s" : ""} reassigned`
+          : undefined,
       })
 
+      setShowDelete(false)
+      setShowMerge(false)
       router.push("/jump-types")
       router.refresh()
-    } catch (error) {
-      console.error("Error deleting jump type:", error)
-      toast({
-        title: "Failed to delete jump type",
-        variant: "destructive"
-      })
-    } finally {
+    } catch {
+      toast({ title: "Failed to delete jump type", description: "An unexpected error occurred", variant: "destructive" })
       setDeleting(false)
-      setShowDelete(false)
-      setShowReassign(false)
     }
   }
 
-  const handleReassignAndDelete = () => {
-    if (!reassignToId) {
-      toast({
-        title: "Please select a jump type",
-        description: "Choose which jump type to reassign jumps to",
-        variant: "destructive"
-      })
+  const handleMergeConfirm = () => {
+    if (!mergeIntoId) {
+      toast({ title: "Please select a jump type", description: "Choose which jump type to merge into", variant: "destructive" })
       return
     }
-    handleDelete(reassignToId)
+    handleDelete(mergeIntoId)
   }
 
-  if (loading) {
-    return <PageLoader />
-  }
-
-  if (!jumpType) {
-    return null
-  }
+  if (loading) return <PageLoader />
+  if (!jumpType) return null
 
   return (
     <div className="max-w-2xl">
@@ -170,53 +182,69 @@ export default function JumpTypeDetailPage() {
           <h1 className="text-2xl font-bold">Edit Jump Type</h1>
           <p className="text-muted-foreground">Update jump type settings</p>
         </div>
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={handleDeleteClick}
-          disabled={checkingJumps}
-        >
-          {checkingJumps ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Trash2 className="h-4 w-4 mr-2" />
-          )}
-          Delete
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleMergeClick}
+            disabled={checkingJumps}
+          >
+            {checkingJumps ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <GitMerge className="h-4 w-4 mr-2" />
+            )}
+            Merge
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleDeleteClick}
+            disabled={checkingJumps}
+          >
+            {checkingJumps ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4 mr-2" />
+            )}
+            Delete
+          </Button>
+        </div>
       </div>
 
       <UserJumpTypeForm initialData={jumpType} />
 
-      {/* Simple Delete Confirmation (no jumps using this type) */}
+      {/* Simple Delete Confirmation (no jumps) */}
       <ConfirmDialog
         open={showDelete}
         onClose={() => setShowDelete(false)}
         onConfirm={() => handleDelete()}
         title="Delete Jump Type"
-        description="Are you sure you want to delete this jump type? This action cannot be undone."
+        description={`Are you sure you want to delete ${jumpType.name}? This action cannot be undone.`}
         confirmLabel="Delete"
         loading={deleting}
       />
 
-      {/* Reassignment Dialog (jumps are using this type) */}
-      <Dialog open={showReassign} onOpenChange={setShowReassign}>
+      {/* Merge Dialog */}
+      <Dialog open={showMerge} onOpenChange={setShowMerge}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              Reassign Jumps
+              <GitMerge className="h-5 w-5 text-primary" />
+              Merge Jump Type
             </DialogTitle>
             <DialogDescription>
-              This jump type is used by {jumpCount} jump{jumpCount !== 1 ? "s" : ""}.
-              Please select another jump type to reassign them to before deleting.
+              All {jumpCount > 0 ? `${jumpCount} jump${jumpCount !== 1 ? "s" : ""} from` : "jumps from"}{" "}
+              <strong>{jumpType.name}</strong> will be moved to the selected jump type, then{" "}
+              <strong>{jumpType.name}</strong> will be deleted.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="reassignTo">Reassign jumps to:</Label>
-              <Select value={reassignToId} onValueChange={setReassignToId}>
-                <SelectTrigger id="reassignTo">
+              <Label htmlFor="mergeInto">Merge into:</Label>
+              <Select value={mergeIntoId} onValueChange={setMergeIntoId}>
+                <SelectTrigger id="mergeInto">
                   <SelectValue placeholder="Select a jump type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -231,25 +259,17 @@ export default function JumpTypeDetailPage() {
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowReassign(false)}
-              disabled={deleting}
-            >
+            <Button variant="outline" onClick={() => setShowMerge(false)} disabled={deleting}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleReassignAndDelete}
-              disabled={deleting || !reassignToId}
-            >
+            <Button onClick={handleMergeConfirm} disabled={deleting || !mergeIntoId}>
               {deleting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
+                  Merging...
                 </>
               ) : (
-                "Reassign & Delete"
+                "Merge & Delete"
               )}
             </Button>
           </DialogFooter>

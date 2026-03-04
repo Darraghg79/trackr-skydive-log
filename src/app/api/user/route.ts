@@ -91,9 +91,17 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const profile = await prisma.user.update({
+    // Use upsert so that if the Prisma user record somehow doesn't exist yet
+    // (e.g. race condition during onboarding), the update creates it AND saves
+    // hasCompletedOnboarding in one shot — preventing the onboarding loop.
+    const profile = await prisma.user.upsert({
       where: { id: user.id },
-      data: validated,
+      create: {
+        id: user.id,
+        email: user.email ?? '',
+        ...validated,
+      },
+      update: validated,
     })
 
     return NextResponse.json(profile)

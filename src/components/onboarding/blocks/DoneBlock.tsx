@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
 
@@ -14,7 +13,6 @@ export function DoneBlock({
   isWorkingSkydiver,
   defaultDropzoneId,
 }: DoneBlockProps) {
-  const router = useRouter()
   const [completing, setCompleting] = useState(true)
   const [dzName, setDzName] = useState("")
 
@@ -27,7 +25,9 @@ export function DoneBlock({
         .catch(() => {})
     }
 
-    // Mark onboarding as complete, then redirect
+    // Mark onboarding as complete, then hard-navigate to /jumps.
+    // Using window.location.href instead of router.push ensures the server
+    // layout re-runs a fresh DB check and sees hasCompletedOnboarding: true.
     const complete = async () => {
       try {
         await fetch("/api/user", {
@@ -42,10 +42,8 @@ export function DoneBlock({
         // Non-critical — redirect regardless
       } finally {
         setCompleting(false)
-        // Auto-redirect to jumps after a brief moment so user can read the message
         setTimeout(() => {
-          router.push("/jumps")
-          router.refresh()
+          window.location.href = "/jumps"
         }, 2500)
       }
     }

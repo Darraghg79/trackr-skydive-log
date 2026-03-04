@@ -155,11 +155,11 @@ Special routes:
 
 ## Known Issues (as of March 2026)
 
-See `pm/DEV-STATUS.md` for full bug list. Critical ones:
+See `pm/DEV-STATUS.md` for full bug list. Outstanding ones:
 
-1. **Dashboard stats wrong** — `home/page.tsx` only fetches 5 jumps but tries to calculate monthly/freefall stats from them. Need either a dedicated `/api/jumps/stats` endpoint or fetch all jumps.
-2. **Reports totalJumps always 0** — `reports/page.tsx` uses `userData.totalJumps` which doesn't exist. Should be `userData.currentJumpNumber - 1`.
-3. **Altitude labels hardcoded to ft** — `JumpForm.tsx` lines 359, 372 — should use `unitPreference` like `distanceToTarget` does.
+1. **Dashboard "This Month" count** — still calculated from the last 5 jumps only. Correct fix is a server-side count added to `GET /api/user` response.
+2. **Dashboard freefall time** — only reflects `startingFreefallTime`, does not sum actual logged jumps. Same fix: add `totalFreefallSeconds` aggregate to `GET /api/user`.
+3. **Invoice with no rates (B8)** — working skydivers can create £0 invoices if DZ has no rates set. Needs an inline blocker in `InvoiceForm.tsx`.
 
 ---
 
@@ -206,37 +206,44 @@ npx prisma db pull         # Pull schema from DB (only if needed)
 
 ---
 
-## Global Seed Data (F1 — implemented March 2026)
+## Global Seed Data (F1 — implemented March 2026, seeded ✅)
 
 ### Architecture Decision
-Three shared global tables (`GlobalDropzone`, `GlobalAircraft`, `GlobalJumpType`) — not per-user. All existing FK constraints on `Jump` remain unchanged (still reference user-owned `Dropzone`, `UserAircraft`, `UserJumpType`).
+Three shared global tables (`GlobalDropzone`, `GlobalAircraft`, `GlobalJumpType`) act as the product-level seed list. They are populated once by the admin and are the same for all users. The FK constraints on `Jump` still reference user-owned tables (`Dropzone`, `UserAircraft`, `UserJumpType`) — users never interact with global tables directly.
+
+**These global tables have been seeded and are live in the database.**
 
 ### How It Works
-- **GlobalDropzone**: 358 DZs seeded from `data/Dropzone list.csv` via `npm run db:seed` then `tsx src/scripts/import-global-dropzones.ts`. When a user selects a GlobalDropzone, the combobox auto-creates a personal `Dropzone` copy via `POST /api/dropzones` and stores the personal DZ's ID.
-- **GlobalAircraft / GlobalJumpType**: Seeded in `prisma/seed.ts`. When a user selects a global aircraft/jump type not yet in their personal list, JumpForm auto-calls `POST /api/user-aircrafts` or `POST /api/user-jump-types` to add it. The new personal record's ID is used in the form.
-- **Deduplication**: The combobox checks the user's existing personal DZs by name before creating a new copy. JumpForm filters global lists to exclude items already in the user's personal list (by name, case-insensitive).
+When a brand new user account is created (first hit of any `/(dashboard)` route), `src/app/(dashboard)/layout.tsx` copies all active global records into the user's personal tables:
+- `GlobalDropzone` → `Dropzone` (user's own copy, editable)
+- `GlobalAircraft` → `UserAircraft` (user's own copy, editable)
+- `GlobalJumpType` → `UserJumpType` (user's own copy, editable)
+
+This copy runs once per user at signup and is silent (non-fatal on failure). After this point, each user owns their list independently — they can add, edit, or delete without affecting other users or the global tables.
+
+**If you update the global tables in future, only new signups will see the changes.** Existing users are unaffected.
 
 ### Key Files
 - `prisma/schema.prisma` — GlobalDropzone, GlobalAircraft, GlobalJumpType models
-- `prisma/seed.ts` — seeds GlobalAircraft + GlobalJumpType; also keeps existing per-user seeding
-- `src/scripts/import-global-dropzones.ts` — CSV importer for GlobalDropzone table
-- `src/app/api/global-dropzones/route.ts` — public GET with search + pagination
-- `src/app/api/global-aircrafts/route.ts` — authenticated GET
-- `src/app/api/global-jump-types/route.ts` — authenticated GET
-- `src/components/ui/dropzone-combobox.tsx` — grouped personal + global DZ search
-- `src/components/forms/JumpForm.tsx` — grouped aircraft + jump type selects
+- `prisma/seed.ts` — seeds GlobalAircraft + GlobalJumpType
+- `src/scripts/import-global-dropzones.ts` — CSV importer for GlobalDropzone (358 DZs from `data/Dropzone list.csv`)
+- `src/app/(dashboard)/layout.tsx` — copies global records to personal on first user login
+- `src/components/ui/dropzone-combobox.tsx` — personal-only DZ search (no global fetch)
+- `src/components/forms/JumpForm.tsx` — personal-only aircraft + jump type selects
 
-### To activate after deploying .env
+### To update the global lists in future
 ```bash
-./node_modules/.bin/prisma db push          # create the 3 new tables
-npm run db:seed                              # seed GlobalAircraft + GlobalJumpType
-tsx src/scripts/import-global-dropzones.ts  # import 358 DZs from CSV
+# Edit the seed data or CSV, then re-run:
+npm run db:seed                              # re-seeds GlobalAircraft + GlobalJumpType
+tsx src/scripts/import-global-dropzones.ts  # re-imports DZs from CSV (use with care — adds new, does not remove)
+# Note: existing users are unaffected. Only new signups will see the updated list.
 ```
 
-### To activate after deploying .env (F2 — already run against dev DB)
+### DB setup notes (already done for dev)
 ```bash
-./node_modules/.bin/prisma db push          # adds hasCompletedOnboarding + isWorkingSkydiver to User
-npm run db:seed                              # backfills hasCompletedOnboarding=true for existing users
+./node_modules/.bin/prisma db push          # schema push (run against any new environment)
+npm run db:seed                              # seeds globals + backfills hasCompletedOnboarding=true
+tsx src/scripts/import-global-dropzones.ts  # imports 358 DZs
 ```
 
 ---

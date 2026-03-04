@@ -59,6 +59,10 @@ export function DoneBlock({
     router.refresh()
   }
 
+  // Redirect destination after onboarding — always /jumps unless the user
+  // has existing jumps to import (in which case the import page is shown first)
+  const primaryDestination = "/jumps"
+
   if (completing) {
     return (
       <Card className="bg-white dark:bg-card rounded-lg border shadow-sm">
@@ -112,10 +116,10 @@ export function DoneBlock({
 
         <div className="flex flex-col gap-2 pt-2">
           <Button onClick={() => handleGoTo("/jumps/new")} className="w-full">
-            Log a Jump
+            Log Your First Jump
           </Button>
-          <Button variant="outline" onClick={() => handleGoTo("/home")} className="w-full">
-            Go to Dashboard
+          <Button variant="outline" onClick={() => handleGoTo(primaryDestination)} className="w-full">
+            Go to My Logbook
           </Button>
         </div>
       </CardContent>

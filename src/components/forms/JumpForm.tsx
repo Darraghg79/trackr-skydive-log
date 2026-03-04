@@ -10,9 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -36,8 +34,6 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
   const [gearComponents, setGearComponents] = useState<any[]>([])
   const [jumpTypes, setJumpTypes] = useState<any[]>([])
   const [aircrafts, setAircrafts] = useState<any[]>([])
-  const [globalAircrafts, setGlobalAircrafts] = useState<any[]>([])
-  const [globalJumpTypes, setGlobalJumpTypes] = useState<any[]>([])
   const [userProfile, setUserProfile] = useState<any>(null)
   const [unitPreference, setUnitPreference] = useState<"METRIC" | "IMPERIAL">("IMPERIAL")
   const manuallyEditedFreefallTimeRef = useRef(false)
@@ -75,24 +71,20 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
   const fetchOptions = async () => {
     try {
       const timestamp = Date.now()
-      const [rigRes, gearRes, jtRes, acRes, userRes, globalAcRes, globalJtRes] = await Promise.all([
+      const [rigRes, gearRes, jtRes, acRes, userRes] = await Promise.all([
         fetch(`/api/rigs?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/gear-components?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/user-jump-types?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/user-aircrafts?isActive=true&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/user?t=${timestamp}`, { cache: 'no-store' }),
-        fetch(`/api/global-aircrafts?t=${timestamp}`, { cache: 'no-store' }),
-        fetch(`/api/global-jump-types?t=${timestamp}`, { cache: 'no-store' }),
       ])
 
-      const [rigData, gearData, jtData, acData, userData, globalAcData, globalJtData] = await Promise.all([
+      const [rigData, gearData, jtData, acData, userData] = await Promise.all([
         rigRes.json(),
         gearRes.json(),
         jtRes.json(),
         acRes.json(),
         userRes.json(),
-        globalAcRes.ok ? globalAcRes.json() : { data: [] },
-        globalJtRes.ok ? globalJtRes.json() : { data: [] },
       ])
 
       // Rigs come with rigComponents included from API
@@ -100,8 +92,6 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
       setGearComponents(gearData.data || [])
       setJumpTypes(jtData.data || [])
       setAircrafts(acData.data || [])
-      setGlobalAircrafts(globalAcData.data || [])
-      setGlobalJumpTypes(globalJtData.data || [])
       setUserProfile(userData)
 
       // Set unit preference from user profile
@@ -223,66 +213,6 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
     }
   }
 
-  // Global aircrafts not already in user's personal list (matched by name)
-  const filteredGlobalAircrafts = globalAircrafts.filter(
-    (ga) => !aircrafts.some((ua) => ua.name.toLowerCase() === ga.name.toLowerCase())
-  )
-
-  // Global jump types not already in user's personal list (matched by name)
-  const filteredGlobalJumpTypes = globalJumpTypes.filter(
-    (gjt) => !jumpTypes.some((ujt) => ujt.name.toLowerCase() === gjt.name.toLowerCase())
-  )
-
-  // When a global aircraft is selected, auto-add it to the user's list
-  const handleAircraftChange = (value: string) => {
-    if (!value.startsWith('global:')) {
-      setFormData((prev) => ({ ...prev, aircraftId: value }))
-      return
-    }
-    const globalId = value.slice('global:'.length)
-    const globalAc = globalAircrafts.find((a) => a.id === globalId)
-    if (!globalAc) return
-
-    fetch('/api/user-aircrafts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: globalAc.name }),
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((newAc) => {
-        if (newAc) {
-          setAircrafts((prev) => [...prev, newAc])
-          setFormData((prev) => ({ ...prev, aircraftId: newAc.id }))
-        }
-      })
-      .catch(console.error)
-  }
-
-  // When a global jump type is selected, auto-add it to the user's list
-  const handleJumpTypeChange = (value: string) => {
-    if (!value.startsWith('global:')) {
-      setFormData((prev) => ({ ...prev, jumpTypeId: value }))
-      return
-    }
-    const globalId = value.slice('global:'.length)
-    const globalJt = globalJumpTypes.find((jt) => jt.id === globalId)
-    if (!globalJt) return
-
-    fetch('/api/user-jump-types', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: globalJt.name }),
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((newJt) => {
-        if (newJt) {
-          setJumpTypes((prev) => [...prev, newJt])
-          setFormData((prev) => ({ ...prev, jumpTypeId: newJt.id }))
-        }
-      })
-      .catch(console.error)
-  }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -339,36 +269,17 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
           <Label htmlFor="aircraftId">Aircraft</Label>
           <Select
             value={formData.aircraftId}
-            onValueChange={handleAircraftChange}
+            onValueChange={(value) => setFormData((prev) => ({ ...prev, aircraftId: value }))}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select aircraft" />
             </SelectTrigger>
             <SelectContent>
-              {aircrafts.length > 0 && (
-                <SelectGroup>
-                  {filteredGlobalAircrafts.length > 0 && (
-                    <SelectLabel>My Aircraft</SelectLabel>
-                  )}
-                  {aircrafts.map((ac) => (
-                    <SelectItem key={ac.id} value={ac.id}>
-                      {ac.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              )}
-              {filteredGlobalAircrafts.length > 0 && (
-                <SelectGroup>
-                  {aircrafts.length > 0 && (
-                    <SelectLabel>All Aircraft</SelectLabel>
-                  )}
-                  {filteredGlobalAircrafts.map((ac) => (
-                    <SelectItem key={`global:${ac.id}`} value={`global:${ac.id}`}>
-                      {ac.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              )}
+              {aircrafts.map((ac) => (
+                <SelectItem key={ac.id} value={ac.id}>
+                  {ac.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -377,36 +288,17 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
           <Label htmlFor="jumpTypeId">Jump Type</Label>
           <Select
             value={formData.jumpTypeId}
-            onValueChange={handleJumpTypeChange}
+            onValueChange={(value) => setFormData((prev) => ({ ...prev, jumpTypeId: value }))}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select jump type" />
             </SelectTrigger>
             <SelectContent>
-              {jumpTypes.length > 0 && (
-                <SelectGroup>
-                  {filteredGlobalJumpTypes.length > 0 && (
-                    <SelectLabel>My Jump Types</SelectLabel>
-                  )}
-                  {jumpTypes.map((jt) => (
-                    <SelectItem key={jt.id} value={jt.id}>
-                      {jt.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              )}
-              {filteredGlobalJumpTypes.length > 0 && (
-                <SelectGroup>
-                  {jumpTypes.length > 0 && (
-                    <SelectLabel>All Jump Types</SelectLabel>
-                  )}
-                  {filteredGlobalJumpTypes.map((jt) => (
-                    <SelectItem key={`global:${jt.id}`} value={`global:${jt.id}`}>
-                      {jt.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              )}
+              {jumpTypes.map((jt) => (
+                <SelectItem key={jt.id} value={jt.id}>
+                  {jt.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

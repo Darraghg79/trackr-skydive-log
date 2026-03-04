@@ -5,7 +5,6 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageLoader } from "@/components/shared/LoadingSpinner"
-import { OnboardingBanner } from "@/components/shared/OnboardingBanner"
 import { Plane, MapPin, TrendingUp, Calendar, Plus } from "lucide-react"
 import { format } from "date-fns"
 import { secondsToHHMMSS, secondsToReadable } from "@/lib/utils/timeFormat"
@@ -19,8 +18,6 @@ interface DashboardStats {
   totalFreefallTime: number
   totalCutaways: number
   recentJumps: any[]
-  hasDropzones: boolean
-  hasAircraft: boolean
   unitPreference: UnitPreference
 }
 
@@ -34,34 +31,22 @@ export default function DashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
-      const [userRes, jumpsRes, dropzonesRes, aircraftRes] = await Promise.all([
+      const [userRes, jumpsRes] = await Promise.all([
         fetch("/api/user"),
         fetch("/api/jumps?limit=5"),
-        fetch("/api/dropzones?limit=1000"),
-        fetch("/api/user-aircrafts"),
       ])
 
-      const [userData, jumpsData, dropzonesData, aircraftData] = await Promise.all([
+      const [userData, jumpsData] = await Promise.all([
         userRes.json(),
         jumpsRes.json(),
-        dropzonesRes.json(),
-        aircraftRes.json(),
       ])
 
-      // Calculate total freefall time from recent jumps (simplified)
-      const totalFreefallTime = jumpsData.data?.reduce(
-        (acc: number, jump: any) => acc + (jump.freefallTime || 0),
-        0
-      ) || 0
-
       setStats({
-        totalJumps: userData.currentJumpNumber - 1 || 0,
-        nextJumpNumber: userData.currentJumpNumber || 1,
-        totalFreefallTime: userData.startingFreefallTime + totalFreefallTime,
+        totalJumps: userData.totalJumps || 0,
+        nextJumpNumber: (userData.totalJumps || 0) + 1,
+        totalFreefallTime: userData.startingFreefallTime || 0,
         totalCutaways: userData.startingCutaways || 0,
         recentJumps: jumpsData.data || [],
-        hasDropzones: (dropzonesData.data || []).length > 0,
-        hasAircraft: (aircraftData.data || []).length > 0,
         unitPreference: userData.unitPreference || "IMPERIAL",
       })
     } catch (error) {
@@ -90,15 +75,6 @@ export default function DashboardPage() {
           </Link>
         </Button>
       </div>
-
-      {/* Onboarding Banner */}
-      {stats && (
-        <OnboardingBanner
-          hasJumps={stats.totalJumps > 0}
-          hasDropzones={stats.hasDropzones}
-          hasAircraft={stats.hasAircraft}
-        />
-      )}
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

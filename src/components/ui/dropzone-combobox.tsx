@@ -17,15 +17,6 @@ interface Dropzone {
   country?: string | null
 }
 
-interface GlobalDropzone {
-  id: string
-  name: string
-  city?: string | null
-  state?: string | null
-  country?: string | null
-  address?: string | null
-}
-
 interface DropzoneComboboxProps {
   value?: string
   onValueChange: (value: string) => void
@@ -41,11 +32,9 @@ export function DropzoneCombobox({
 }: DropzoneComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
-  const [personalDropzones, setPersonalDropzones] = React.useState<Dropzone[]>([])
-  const [globalDropzones, setGlobalDropzones] = React.useState<GlobalDropzone[]>([])
+  const [dropzones, setDropzones] = React.useState<Dropzone[]>([])
   const [loading, setLoading] = React.useState(false)
-  const [selectedDropzone, setSelectedDropzone] = React.useState<Dropzone | null>(null)
-  const [creatingPersonal, setCreatingPersonal] = React.useState(false)
+  const [selectedName, setSelectedName] = React.useState<string>("")
 
   const [debouncedSearch, setDebouncedSearch] = React.useState("")
 
@@ -56,106 +45,53 @@ export function DropzoneCombobox({
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  // Fetch both personal and global dropzones when search or open state changes
+  // Fetch personal dropzones when popover opens or search changes
   React.useEffect(() => {
     if (!open) return
 
     const fetchDropzones = async () => {
       setLoading(true)
       try {
-        const limit = debouncedSearch ? 50 : 20
         const searchParam = debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : ''
-
-        const [personalRes, globalRes] = await Promise.all([
-          fetch(`/api/dropzones?limit=${limit}&offset=0&isActive=true${searchParam}&t=${Date.now()}`, { cache: 'no-store' }),
-          fetch(`/api/global-dropzones?limit=${limit}${searchParam}`, { cache: 'no-store' }),
-        ])
-
-        if (personalRes.ok) {
-          const data = await personalRes.json()
-          setPersonalDropzones(data.data || [])
+        const res = await fetch(
+          `/api/dropzones?limit=100&offset=0&isActive=true${searchParam}&t=${Date.now()}`,
+          { cache: 'no-store' }
+        )
+        if (res.ok) {
+          const data = await res.json()
+          setDropzones(data.data || [])
         }
-
-        if (globalRes.ok) {
-          const data = await globalRes.json()
-          setGlobalDropzones(data.data || [])
-        }
-      } catch (error) {
-        console.error('Failed to fetch dropzones:', error)
+      } catch {
+        // Silently fail — empty list is acceptable
       } finally {
         setLoading(false)
       }
     }
 
     fetchDropzones()
-  }, [debouncedSearch, open])
+  }, [open, debouncedSearch])
 
-  // Load selected dropzone name when value changes
+  // Resolve selected DZ name from value
   React.useEffect(() => {
     if (!value) {
-      setSelectedDropzone(null)
+      setSelectedName("")
       return
     }
-
-    const existing = personalDropzones.find(dz => dz.id === value)
-    if (existing) {
-      setSelectedDropzone(existing)
+    const match = dropzones.find(dz => dz.id === value)
+    if (match) {
+      setSelectedName(match.name)
       return
     }
-
+    // Not in current list — fetch it directly
     fetch(`/api/dropzones/${value}`, { cache: 'no-store' })
       .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data) setSelectedDropzone(data)
-      })
+      .then(data => { if (data?.name) setSelectedName(data.name) })
       .catch(() => {})
-  }, [value, personalDropzones])
+  }, [value, dropzones])
 
   React.useEffect(() => {
     if (!open) setSearchQuery("")
   }, [open])
-
-  // When user selects a GlobalDropzone, auto-create a personal copy and return its id
-  const handleGlobalSelect = async (globalDz: GlobalDropzone) => {
-    // Check if user already has a personal DZ with the same name
-    const alreadyExists = personalDropzones.find(
-      dz => dz.name.toLowerCase() === globalDz.name.toLowerCase()
-    )
-    if (alreadyExists) {
-      onValueChange(alreadyExists.id)
-      setOpen(false)
-      return
-    }
-
-    setCreatingPersonal(true)
-    try {
-      const res = await fetch('/api/dropzones', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: globalDz.name,
-          city: globalDz.city ?? undefined,
-          country: globalDz.country ?? undefined,
-          address: globalDz.address ?? undefined,
-        }),
-      })
-
-      if (res.ok) {
-        const newDz: Dropzone = await res.json()
-        setPersonalDropzones(prev => [...prev, newDz])
-        onValueChange(newDz.id)
-      }
-    } catch (error) {
-      console.error('Failed to create personal dropzone:', error)
-    } finally {
-      setCreatingPersonal(false)
-      setOpen(false)
-    }
-  }
-
-  const hasPersonal = personalDropzones.length > 0
-  const hasGlobal = globalDropzones.length > 0
-  const showGroups = hasPersonal && hasGlobal
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -166,7 +102,7 @@ export function DropzoneCombobox({
           aria-expanded={open}
           className={cn("w-full justify-between", className)}
         >
-          {selectedDropzone ? selectedDropzone.name : placeholder}
+          {selectedName || placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -183,72 +119,40 @@ export function DropzoneCombobox({
             />
           </div>
 
-          {loading || creatingPersonal ? (
+          {loading ? (
             <div className="flex items-center justify-center py-6">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : !hasPersonal && !hasGlobal ? (
+          ) : dropzones.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
               {debouncedSearch
-                ? "No dropzones found. Try a different search."
-                : "Start typing to search dropzones..."}
+                ? "No dropzones found. Try a different search or add a new one."
+                : "No dropzones yet. Add one from the Dropzones section."}
             </div>
           ) : (
             <div className="max-h-80 overflow-auto p-1">
-              {/* Personal dropzones */}
-              {hasPersonal && (
-                <>
-                  {showGroups && (
-                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      My Dropzones
-                    </div>
+              {dropzones.map((dz) => (
+                <button
+                  key={dz.id}
+                  type="button"
+                  onClick={() => {
+                    onValueChange(dz.id === value ? "" : dz.id)
+                    setOpen(false)
+                  }}
+                  className="w-full flex items-center px-2 py-2 text-sm hover:bg-accent rounded-sm cursor-pointer text-left"
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4 shrink-0",
+                      value === dz.id ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <span className="flex-1">{dz.name}</span>
+                  {dz.country && (
+                    <span className="ml-2 text-xs text-muted-foreground">{dz.country}</span>
                   )}
-                  {personalDropzones.map((dz) => (
-                    <button
-                      key={dz.id}
-                      type="button"
-                      onClick={() => {
-                        onValueChange(dz.id === value ? "" : dz.id)
-                        setOpen(false)
-                      }}
-                      className="w-full flex items-center px-2 py-2 text-sm hover:bg-accent rounded-sm cursor-pointer text-left"
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4 shrink-0",
-                          value === dz.id ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      <span className="flex-1">{dz.name}</span>
-                    </button>
-                  ))}
-                </>
-              )}
-
-              {/* Global dropzones */}
-              {hasGlobal && (
-                <>
-                  {showGroups && (
-                    <div className="px-2 py-1.5 mt-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-t pt-2">
-                      All Dropzones
-                    </div>
-                  )}
-                  {globalDropzones.map((dz) => (
-                    <button
-                      key={`global:${dz.id}`}
-                      type="button"
-                      onClick={() => handleGlobalSelect(dz)}
-                      className="w-full flex items-center px-2 py-2 text-sm hover:bg-accent rounded-sm cursor-pointer text-left"
-                    >
-                      <Check className="mr-2 h-4 w-4 shrink-0 opacity-0" />
-                      <span className="flex-1">{dz.name}</span>
-                      {dz.country && (
-                        <span className="ml-2 text-xs text-muted-foreground">{dz.country}</span>
-                      )}
-                    </button>
-                  ))}
-                </>
-              )}
+                </button>
+              ))}
             </div>
           )}
         </div>

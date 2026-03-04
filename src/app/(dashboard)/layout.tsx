@@ -20,14 +20,17 @@ export default async function DashboardLayout({
 
     // Brand new user — no Prisma record yet; create it and seed their default data
     if (!profile) {
-      await prisma.user.create({
-        data: { id: user.id, email: user.email! },
-      })
-
-      // Seed the user's personal lists from global tables so they have a full
-      // set of dropzones, aircraft, and jump types available from day one.
-      // This runs once per user and is silently skipped if global tables are empty.
       try {
+        // Use upsert to safely handle concurrent renders (Next.js can call this twice)
+        await prisma.user.upsert({
+          where: { id: user.id },
+          create: { id: user.id, email: user.email ?? '' },
+          update: {},
+        })
+
+        // Seed the user's personal lists from global tables so they have a full
+        // set of dropzones, aircraft, and jump types available from day one.
+        // This runs once per user and is silently skipped if global tables are empty.
         const [globalDzs, globalAircrafts, globalJumpTypes] = await Promise.all([
           prisma.globalDropzone.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
           prisma.globalAircraft.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } }),
@@ -43,16 +46,21 @@ export default async function DashboardLayout({
               country: dz.country ?? undefined,
               address: dz.address ?? undefined,
             })),
+            skipDuplicates: true,
           }),
           prisma.userAircraft.createMany({
             data: globalAircrafts.map(ac => ({ userId: user.id, name: ac.name })),
+            skipDuplicates: true,
           }),
           prisma.userJumpType.createMany({
             data: globalJumpTypes.map(jt => ({ userId: user.id, name: jt.name })),
+            skipDuplicates: true,
           }),
         ])
       } catch {
-        // Non-critical — user proceeds to onboarding regardless
+        // Non-critical — user proceeds to onboarding regardless.
+        // If user creation failed, the redirect below keeps them in the
+        // onboarding loop and the upsert will be retried on next load.
       }
     }
 

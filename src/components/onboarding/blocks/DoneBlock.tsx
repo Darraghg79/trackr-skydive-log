@@ -2,20 +2,17 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2 } from "lucide-react"
 
 interface DoneBlockProps {
   isWorkingSkydiver: boolean
   defaultDropzoneId: string
-  redirectToImportAfterOnboarding: boolean
 }
 
 export function DoneBlock({
   isWorkingSkydiver,
   defaultDropzoneId,
-  redirectToImportAfterOnboarding,
 }: DoneBlockProps) {
   const router = useRouter()
   const [completing, setCompleting] = useState(true)
@@ -30,7 +27,7 @@ export function DoneBlock({
         .catch(() => {})
     }
 
-    // Mark onboarding as complete
+    // Mark onboarding as complete, then redirect
     const complete = async () => {
       try {
         await fetch("/api/user", {
@@ -42,26 +39,18 @@ export function DoneBlock({
           }),
         })
       } catch {
-        // Non-critical — user can still navigate
+        // Non-critical — redirect regardless
       } finally {
         setCompleting(false)
+        // Auto-redirect to jumps after a brief moment so user can read the message
+        setTimeout(() => {
+          router.push("/jumps")
+          router.refresh()
+        }, 2500)
       }
     }
     complete()
   }, [isWorkingSkydiver, defaultDropzoneId])
-
-  const handleGoTo = (path: string) => {
-    if (redirectToImportAfterOnboarding) {
-      router.push("/settings/import")
-    } else {
-      router.push(path)
-    }
-    router.refresh()
-  }
-
-  // Redirect destination after onboarding — always /jumps unless the user
-  // has existing jumps to import (in which case the import page is shown first)
-  const primaryDestination = "/jumps"
 
   if (completing) {
     return (
@@ -91,37 +80,16 @@ export function DoneBlock({
               You can manage rates for multiple dropzones at any time from{" "}
               <strong className="text-foreground">Dropzones → Edit</strong>.
             </p>
-            <p>
-              All your profile settings can be updated from the{" "}
-              <strong className="text-foreground">Settings</strong> menu.
-            </p>
           </div>
-        ) : (
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <p>
-              Your profile is configured. Start logging jumps, track your gear, and explore your stats.
-            </p>
-            <p>
-              You can update any of your settings at any time from the{" "}
-              <strong className="text-foreground">Settings</strong> menu.
-            </p>
-          </div>
-        )}
+        ) : null}
 
-        {redirectToImportAfterOnboarding && (
-          <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 px-4 py-3 text-sm text-blue-700 dark:text-blue-400">
-            You&apos;ll be taken to the import page to bring in your existing logbook.
-          </div>
-        )}
+        <p className="text-sm text-muted-foreground text-center">
+          That&apos;s it, you&apos;re ready to log jumps. You can import previous history from Settings whenever you like.
+        </p>
 
-        <div className="flex flex-col gap-2 pt-2">
-          <Button onClick={() => handleGoTo("/jumps/new")} className="w-full">
-            Log Your First Jump
-          </Button>
-          <Button variant="outline" onClick={() => handleGoTo(primaryDestination)} className="w-full">
-            Go to My Logbook
-          </Button>
-        </div>
+        <p className="text-xs text-muted-foreground text-center">
+          Taking you to your logbook…
+        </p>
       </CardContent>
     </Card>
   )

@@ -17,8 +17,8 @@ export const dynamic = 'force-dynamic'
 
 type UnitPreference = "METRIC" | "IMPERIAL"
 
-// Client-side chunking to avoid Vercel 300s timeout
-const CHUNK_SIZE = 50
+// Client-side chunking — keep batches small so each request completes well within Vercel's timeout
+const CHUNK_SIZE = 25
 
 // Standard Trackr field names
 const TRACKR_FIELDS = [
@@ -449,7 +449,7 @@ export default function ImportJumpsPage() {
               <div className="flex items-center justify-between text-sm">
                 <span>
                   {totalChunks > 1
-                    ? `Uploading batch ${currentChunk}/${totalChunks} (${currentChunk * CHUNK_SIZE}/${csvData.length} jumps)`
+                    ? `Uploading batch ${currentChunk}/${totalChunks} (~${Math.min(currentChunk * CHUNK_SIZE, csvData.length)}/${csvData.length} jumps)`
                     : "Importing..."
                   }
                 </span>

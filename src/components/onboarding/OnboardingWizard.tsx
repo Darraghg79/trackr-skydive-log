@@ -20,7 +20,6 @@ export interface WizardState {
   unitPreference: "IMPERIAL" | "METRIC"
   defaultDropzoneId: string
   isWorkingSkydiver: boolean
-  redirectToImportAfterOnboarding: boolean
 }
 
 const CONTENT_BLOCKS: WizardBlock[] = [
@@ -52,7 +51,6 @@ export function OnboardingWizard() {
     unitPreference: "IMPERIAL",
     defaultDropzoneId: "",
     isWorkingSkydiver: false,
-    redirectToImportAfterOnboarding: false,
   })
 
   const updateState = (partial: Partial<WizardState>) => {
@@ -103,8 +101,7 @@ export function OnboardingWizard() {
 
       {currentBlock === "jump-history" && (
         <JumpHistoryBlock
-          onNext={(redirectToImport) => {
-            updateState({ redirectToImportAfterOnboarding: redirectToImport })
+          onNext={() => {
             advance("jumper-type")
           }}
         />
@@ -134,7 +131,6 @@ export function OnboardingWizard() {
         <DoneBlock
           isWorkingSkydiver={wizardState.isWorkingSkydiver}
           defaultDropzoneId={wizardState.defaultDropzoneId}
-          redirectToImportAfterOnboarding={wizardState.redirectToImportAfterOnboarding}
         />
       )}
     </div>

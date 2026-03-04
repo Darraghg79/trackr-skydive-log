@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Loader2, Download } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { parseHHMMSSToSeconds } from "@/lib/utils/timeFormat"
 
 interface JumpHistoryBlockProps {
-  onNext: (redirectToImport: boolean) => void
+  onNext: () => void
 }
 
 export function JumpHistoryBlock({ onNext }: JumpHistoryBlockProps) {
@@ -43,7 +43,7 @@ export function JumpHistoryBlock({ onNext }: JumpHistoryBlockProps) {
     })
   }
 
-  const handleSubmit = async (redirectToImport: boolean) => {
+  const handleSubmit = async () => {
     setSaving(true)
     try {
       await save()
@@ -52,7 +52,7 @@ export function JumpHistoryBlock({ onNext }: JumpHistoryBlockProps) {
     } finally {
       setSaving(false)
     }
-    onNext(redirectToImport)
+    onNext()
   }
 
   return (
@@ -110,46 +110,14 @@ export function JumpHistoryBlock({ onNext }: JumpHistoryBlockProps) {
           </p>
         </div>
 
-        {/* Import callout */}
-        <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Download className="h-4 w-4 text-muted-foreground" />
-            Have an existing logbook?
-          </div>
-          <p className="text-xs text-muted-foreground">
-            You can import your jumps from a CSV now, or do it later from Settings → Import.
-          </p>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => handleSubmit(true)}
-              disabled={saving}
-            >
-              Import now
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => handleSubmit(false)}
-              disabled={saving}
-              className="text-muted-foreground"
-            >
-              I&apos;ll do it later
-            </Button>
-          </div>
-        </div>
-
         <div className="flex gap-3 pt-2">
-          <Button onClick={() => handleSubmit(false)} disabled={saving} className="flex-1">
+          <Button onClick={() => handleSubmit()} disabled={saving} className="flex-1">
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Continue
           </Button>
           <Button
             variant="ghost"
-            onClick={() => onNext(false)}
+            onClick={() => onNext()}
             disabled={saving}
             className="text-sm"
           >

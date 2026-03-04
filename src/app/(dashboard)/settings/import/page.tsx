@@ -221,9 +221,10 @@ export default function ImportJumpsPage() {
           allErrors.push(...data.errors)
         }
 
-        // Wait 100ms between chunks to avoid overwhelming the server
+        // Wait between chunks to let the previous serverless connection close
+        // before opening the next one — critical for Supabase connection limits
         if (i < chunks.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100))
+          await new Promise(resolve => setTimeout(resolve, 600))
         }
       }
 

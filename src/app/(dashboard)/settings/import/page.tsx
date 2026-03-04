@@ -208,7 +208,7 @@ export default function ImportJumpsPage() {
 
         if (!res.ok) {
           const error = await res.json()
-          throw new Error(error.error || "Import failed")
+          throw new Error(error.details || error.error || "Import failed")
         }
 
         const data = await res.json()

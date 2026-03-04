@@ -31,11 +31,13 @@ interface InvoiceSetupBlockProps {
 interface DropzoneInfo {
   id: string
   name: string
+  currency?: string | null
 }
 
 export function InvoiceSetupBlock({ defaultDropzoneId, onNext }: InvoiceSetupBlockProps) {
-  const [dz, setDz] = useState<DropzoneInfo | null>(null)
-  const [currency, setCurrency] = useState("USD")
+  const [allDropzones, setAllDropzones] = useState<DropzoneInfo[]>([])
+  const [selectedDzId, setSelectedDzId] = useState(defaultDropzoneId)
+  const [currency, setCurrency] = useState("EUR")
   const [rateAFF, setRateAFF] = useState("")
   const [rateTandem, setRateTandem] = useState("")
   const [rateCamera, setRateCamera] = useState("")
@@ -43,22 +45,39 @@ export function InvoiceSetupBlock({ defaultDropzoneId, onNext }: InvoiceSetupBlo
   const [rateHandcam, setRateHandcam] = useState("")
   const [taxRate, setTaxRate] = useState("")
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [loadingDzs, setLoadingDzs] = useState(true)
 
+  // Load all user dropzones on mount so the selector is always populated
   useEffect(() => {
-    if (!defaultDropzoneId) return
-    fetch(`/api/dropzones/${defaultDropzoneId}`, { cache: "no-store" })
+    fetch("/api/dropzones?limit=200&offset=0", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data) {
-          setDz({ id: data.id, name: data.name })
-          if (data.currency) setCurrency(data.currency)
+        if (data?.data) {
+          setAllDropzones(data.data)
+          // If no DZ was pre-selected, pick the first one as a sensible default
+          if (!selectedDzId && data.data.length > 0) {
+            setSelectedDzId(data.data[0].id)
+            if (data.data[0].currency) setCurrency(data.data[0].currency)
+          }
         }
       })
       .catch(() => {})
-  }, [defaultDropzoneId])
+      .finally(() => setLoadingDzs(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // When the selected DZ changes, pre-fill currency from that DZ
+  useEffect(() => {
+    if (!selectedDzId) return
+    const match = allDropzones.find((d) => d.id === selectedDzId)
+    if (match?.currency) setCurrency(match.currency)
+  }, [selectedDzId, allDropzones])
+
+  const selectedDzName = allDropzones.find((d) => d.id === selectedDzId)?.name
 
   const save = async () => {
-    if (!defaultDropzoneId) return
+    if (!selectedDzId) return
     const body: Record<string, unknown> = { currency }
     if (rateAFF) body.rateAFF = parseFloat(rateAFF)
     if (rateTandem) body.rateTandem = parseFloat(rateTandem)
@@ -67,26 +86,42 @@ export function InvoiceSetupBlock({ defaultDropzoneId, onNext }: InvoiceSetupBlo
     if (rateHandcam) body.rateHandcam = parseFloat(rateHandcam)
     if (taxRate) body.taxRate = parseFloat(taxRate)
 
-    await fetch(`/api/dropzones/${defaultDropzoneId}`, {
+    const res = await fetch(`/api/dropzones/${selectedDzId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     })
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || `Save failed (${res.status})`)
+    }
   }
 
   const handleSubmit = async () => {
     setSaving(true)
+    setSaveError(null)
     try {
       await save()
-    } catch {
-      // Non-critical — continue regardless
+      onNext()
+    } catch (err: any) {
+      setSaveError(err.message || "Failed to save rates. You can configure them later in Dropzones → Edit.")
     } finally {
       setSaving(false)
     }
-    onNext()
   }
 
-  if (!defaultDropzoneId) {
+  if (loadingDzs) {
+    return (
+      <Card className="bg-white dark:bg-card rounded-lg border shadow-sm">
+        <CardContent className="py-10 flex justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (allDropzones.length === 0) {
     return (
       <Card className="bg-white dark:bg-card rounded-lg border shadow-sm">
         <CardHeader>
@@ -94,7 +129,7 @@ export function InvoiceSetupBlock({ defaultDropzoneId, onNext }: InvoiceSetupBlo
         </CardHeader>
         <CardContent className="space-y-5">
           <p className="text-sm text-muted-foreground">
-            You&apos;ll be able to configure invoice rates once you&apos;ve set up a dropzone.
+            You&apos;ll be able to configure invoice rates once you&apos;ve added a dropzone.
             You can do this in <strong>Dropzones → Edit</strong>.
           </p>
           <Button onClick={onNext} className="w-full">Continue</Button>
@@ -107,7 +142,7 @@ export function InvoiceSetupBlock({ defaultDropzoneId, onNext }: InvoiceSetupBlo
     <Card className="bg-white dark:bg-card rounded-lg border shadow-sm">
       <CardHeader>
         <CardTitle className="text-xl">
-          Set up invoicing{dz ? ` for ${dz.name}` : ""}
+          Set up invoicing{selectedDzName ? ` for ${selectedDzName}` : ""}
         </CardTitle>
         <CardDescription>
           Enter your rates so TrackR can auto-calculate your invoices. All fields are optional —
@@ -115,6 +150,24 @@ export function InvoiceSetupBlock({ defaultDropzoneId, onNext }: InvoiceSetupBlo
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+
+        {/* Show DZ selector if there are multiple dropzones or none was pre-selected */}
+        {(allDropzones.length > 1 || !defaultDropzoneId) && (
+          <div className="space-y-2">
+            <Label>Dropzone</Label>
+            <Select value={selectedDzId} onValueChange={setSelectedDzId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select your home dropzone" />
+              </SelectTrigger>
+              <SelectContent>
+                {allDropzones.map((dz) => (
+                  <SelectItem key={dz.id} value={dz.id}>{dz.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label>Currency</Label>
           <Select value={currency} onValueChange={setCurrency}>
@@ -199,8 +252,20 @@ export function InvoiceSetupBlock({ defaultDropzoneId, onNext }: InvoiceSetupBlo
           </div>
         </div>
 
+        {saveError && (
+          <div className="rounded-md bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive">
+            {saveError}
+            <button
+              onClick={onNext}
+              className="block mt-1 underline text-xs text-muted-foreground"
+            >
+              Continue without saving →
+            </button>
+          </div>
+        )}
+
         <div className="flex gap-3 pt-2">
-          <Button onClick={handleSubmit} disabled={saving} className="flex-1">
+          <Button onClick={handleSubmit} disabled={saving || !selectedDzId} className="flex-1">
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save &amp; Continue
           </Button>

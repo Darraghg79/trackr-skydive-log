@@ -345,7 +345,7 @@ export async function POST(req: NextRequest) {
     if (imported > 0 || updated > 0) {
       await prisma.user.update({
         where: { id: user.id },
-        data: { currentJumpNumber: maxJumpNumber + 1 },
+        data: { currentJumpNumber: maxJumpNumber },
       })
     }
 

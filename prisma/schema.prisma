@@ -62,7 +62,7 @@ model User {
   remittanceDetails       String?        @db.Text
   licenseNumber           String?
   unitPreference          UnitPreference @default(IMPERIAL)
-  currentJumpNumber       Int            @default(1)
+  currentJumpNumber       Int            @default(0)
   startingFreefallTime    Int            @default(0)
   startingCutaways        Int            @default(0)
   invoiceStartingNumber   Int            @default(1)

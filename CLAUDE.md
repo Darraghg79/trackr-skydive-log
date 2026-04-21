@@ -212,6 +212,25 @@ Key files:
 
 ---
 
+## Settings Cleanup Decisions
+
+**Implemented: 2026-04-21 (F-SETTINGS-CLEANUP)**
+
+Both the header and bottom nav settings icons now navigate directly to `/settings` (the tile page) instead of opening a dropdown. The tile page is the canonical entry point for all settings sub-pages.
+
+Key decisions:
+- **No dropdown menus** — `DropdownMenu` and all associated icon imports removed from both `Header.tsx` and `BottomNav.tsx`. All dropdown-only icons (`User`, `Lock`, `Bell`, `CreditCard`, `MapPin`, `Package`, `ListChecks`, `Upload`, `Download`, `SettingsIcon`, `Plus`) removed.
+- **BottomNav Settings is now a plain Link** — same rendering path as Jumps/Invoices/Reports nav items. The `isSettings: true` flag and the entire conditional render block are gone.
+- **Jump Statistics removed from Profile page** — `currentJumpNumber`, `startingFreefallTime`, `startingCutaways` fields, `auditLogs`/`auditLoading` state, `fetchAuditLogs` function, and `format` import from date-fns all removed. The dedicated `/settings/jump-stats` page is the canonical location for these fields.
+- **Profile page Save Changes still works** — remaining fields (name, phone, address, licenseNumber, unitPreference, taxRegistrationNumber, remittanceDetails, defaultDropzoneId, defaultExitAltitude, defaultDeploymentAltitude) unaffected.
+
+Key files:
+- `src/components/layouts/Header.tsx` — settings icon is now a `<Button asChild><Link href="/settings">` 
+- `src/components/layouts/BottomNav.tsx` — Settings navItem has `href: "/settings"`, no `isSettings` flag
+- `src/app/(dashboard)/settings/profile/page.tsx` — Jump Statistics Card removed
+
+---
+
 ## Roadmap — Future Features
 
 ### F-IMPORT-BG: Background CSV Import (Priority: High)

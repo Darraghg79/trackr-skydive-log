@@ -25,7 +25,6 @@ import {
 import { useToast } from "@/hooks/useToast"
 import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { Loader2, AlertTriangle } from "lucide-react"
-import { format } from "date-fns"
 import { useRouter } from "next/navigation"
 
 
@@ -38,9 +37,6 @@ export default function ProfilePage() {
     phone: "",
     licenseNumber: "",
     unitPreference: "IMPERIAL",
-    currentJumpNumber: 1,
-    startingFreefallTime: 0,
-    startingCutaways: 0,
     taxRegistrationNumber: "",
     remittanceDetails: "",
     defaultDropzoneId: null as string | null,
@@ -48,8 +44,6 @@ export default function ProfilePage() {
     defaultDeploymentAltitude: null as number | null,
   })
   const [dropzones, setDropzones] = useState<any[]>([])
-  const [auditLogs, setAuditLogs] = useState<any[]>([])
-  const [auditLoading, setAuditLoading] = useState(true)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteConfirmation, setDeleteConfirmation] = useState("")
   const [deleting, setDeleting] = useState(false)
@@ -59,7 +53,6 @@ export default function ProfilePage() {
 
   useEffect(() => {
     fetchProfile()
-    fetchAuditLogs()
     fetchDropzones()
   }, [])
 
@@ -73,9 +66,6 @@ export default function ProfilePage() {
         phone: data.phone || "",
         licenseNumber: data.licenseNumber || "",
         unitPreference: data.unitPreference || "IMPERIAL",
-        currentJumpNumber: data.currentJumpNumber || 1,
-        startingFreefallTime: data.startingFreefallTime || 0,
-        startingCutaways: data.startingCutaways || 0,
         taxRegistrationNumber: data.taxRegistrationNumber || "",
         remittanceDetails: data.remittanceDetails || "",
         defaultDropzoneId: data.defaultDropzoneId || null,
@@ -99,19 +89,6 @@ export default function ProfilePage() {
     }
   }
 
-  const fetchAuditLogs = async () => {
-    try {
-      const res = await fetch("/api/audit-logs?limit=20")
-      if (!res.ok) throw new Error("Failed to fetch audit logs")
-      const data = await res.json()
-      setAuditLogs(data.data || [])
-    } catch (error) {
-      console.error("Failed to load audit logs:", error)
-    } finally {
-      setAuditLoading(false)
-    }
-  }
-
   const handleSave = async () => {
     setSaving(true)
     try {
@@ -120,11 +97,6 @@ export default function ProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...profile,
-          currentJumpNumber: parseInt(profile.currentJumpNumber.toString()),
-          startingFreefallTime: parseInt(
-            profile.startingFreefallTime.toString()
-          ),
-          startingCutaways: parseInt(profile.startingCutaways.toString()),
           defaultDropzoneId: profile.defaultDropzoneId || null,
           defaultExitAltitude: profile.defaultExitAltitude ? parseInt(profile.defaultExitAltitude.toString()) : null,
           defaultDeploymentAltitude: profile.defaultDeploymentAltitude ? parseInt(profile.defaultDeploymentAltitude.toString()) : null,
@@ -133,7 +105,6 @@ export default function ProfilePage() {
 
       if (!res.ok) throw new Error("Failed to save")
       toast({ title: "Profile updated" })
-      fetchAuditLogs()
     } catch (error) {
       toast({ title: "Failed to save profile", variant: "destructive" })
     } finally {
@@ -367,89 +338,6 @@ export default function ProfilePage() {
             />
             <p className="text-xs text-muted-foreground">
               Pre-fill new jumps with this deployment altitude
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Jump Statistics</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="currentJumpNumber">Current Jump Number</Label>
-            <Input
-              id="currentJumpNumber"
-              type="number"
-              min="1"
-              value={profile.currentJumpNumber}
-              onChange={(e) =>
-                setProfile({ ...profile, currentJumpNumber: parseInt(e.target.value) || 0 })
-              }
-            />
-            <p className="text-xs text-muted-foreground">
-              Your next jump will be logged as jump {profile.currentJumpNumber + 1}
-            </p>
-          </div>
-
-          {!auditLoading && (
-            <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">Jump Number History</Label>
-              <div className="rounded-md border border-muted bg-muted/30 p-3 space-y-2 max-h-48 overflow-y-auto">
-                {auditLogs.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-2">
-                    No changes recorded
-                  </p>
-                ) : (
-                  auditLogs.map((log) => (
-                    <div key={log.id} className="text-xs text-muted-foreground">
-                      Changed from <span className="font-medium">{log.previousNumber}</span> to{" "}
-                      <span className="font-medium">{log.newNumber}</span> on{" "}
-                      {format(new Date(log.changedAt), "MMM d, yyyy 'at' h:mm a")}
-                      {log.reason && (
-                        <>
-                          , Reason: <span className="italic">{log.reason}</span>
-                        </>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="startingFreefallTime">
-              Starting Freefall Time (seconds)
-            </Label>
-            <Input
-              id="startingFreefallTime"
-              type="number"
-              min="0"
-              value={profile.startingFreefallTime}
-              onChange={(e) =>
-                setProfile({ ...profile, startingFreefallTime: parseInt(e.target.value) || 0 })
-              }
-            />
-            <p className="text-xs text-muted-foreground">
-              Total freefall time before using this app
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="startingCutaways">Starting Cutaways</Label>
-            <Input
-              id="startingCutaways"
-              type="number"
-              min="0"
-              value={profile.startingCutaways}
-              onChange={(e) =>
-                setProfile({ ...profile, startingCutaways: parseInt(e.target.value) || 0 })
-              }
-            />
-            <p className="text-xs text-muted-foreground">
-              Number of cutaways before using this app
             </p>
           </div>
         </CardContent>

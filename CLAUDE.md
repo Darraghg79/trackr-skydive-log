@@ -11,8 +11,9 @@
 A mobile-first web app for skydivers to log jumps, manage gear, and invoice work jumps.
 Single-user model — each user owns all their data (no org/multi-tenancy).
 
-**Live:** Not yet deployed (Vercel + Supabase setup pending)
-**Repo:** GitHub main branch (clean, no uncommitted changes as of March 2026)
+**Live:** login.trackr-app.online (landing: www.trackr-app.online)
+**Repo:** https://github.com/Darraghg79/trackr-skydive-log (main branch, Vercel auto-deploys)
+**Asana:** https://app.asana.com/1/1211819601364144/project/1214142822018188
 
 ---
 

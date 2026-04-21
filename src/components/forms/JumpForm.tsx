@@ -99,13 +99,18 @@ export function JumpForm({ initialData, jumpId }: JumpFormProps) {
         setUnitPreference(userData.unitPreference)
       }
 
-      if (!initialData && userData?.currentJumpNumber) {
+      // Always set the next jump number from server — whether new or copied jump
+      // Only skip for EDIT mode (when jumpId is provided)
+      if (!jumpId && userData?.currentJumpNumber) {
         setFormData((prev) => ({
           ...prev,
           jumpNumber: userData.currentJumpNumber + 1,
-          dropzoneId: userData.defaultDropzoneId || prev.dropzoneId,
-          exitAltitude: userData.defaultExitAltitude || prev.exitAltitude,
-          deploymentAltitude: userData.defaultDeploymentAltitude || prev.deploymentAltitude,
+          // Only apply defaults for brand new jumps (not copies)
+          ...(!initialData && {
+            dropzoneId: userData.defaultDropzoneId || prev.dropzoneId,
+            exitAltitude: userData.defaultExitAltitude || prev.exitAltitude,
+            deploymentAltitude: userData.defaultDeploymentAltitude || prev.deploymentAltitude,
+          }),
         }))
       }
     } catch (error) {

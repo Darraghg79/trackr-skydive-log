@@ -48,12 +48,25 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
-    const totalJumps = maxJumpResult._max.jumpNumber || 0
+    const maxJumpInDB = maxJumpResult._max.jumpNumber || 0
+    const totalJumps = maxJumpInDB
     const thisMonthJumps = thisMonthCount
     const totalFreefallSeconds = (freefallSum._sum.freefallTime || 0) + (profile.startingFreefallTime || 0)
     const totalCutaways = cutawayCount + (profile.startingCutaways || 0)
 
-    return NextResponse.json({ ...profile, totalJumps, thisMonthJumps, totalFreefallSeconds, totalCutaways })
+    // Reconcile: currentJumpNumber should always be >= max jump in DB
+    // This is the authoritative "last completed jump" number
+    const reconciledJumpNumber = Math.max(profile.currentJumpNumber, maxJumpInDB)
+
+    // Auto-fix if out of sync
+    if (reconciledJumpNumber !== profile.currentJumpNumber) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { currentJumpNumber: reconciledJumpNumber },
+      })
+    }
+
+    return NextResponse.json({ ...profile, currentJumpNumber: reconciledJumpNumber, totalJumps, thisMonthJumps, totalFreefallSeconds, totalCutaways, maxJumpInDB })
   } catch (error) {
     console.error('GET /api/user error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -74,6 +87,20 @@ export async function PATCH(request: NextRequest) {
 
     // Track jump number changes in audit log
     if (validated.currentJumpNumber !== undefined) {
+      // Enforce floor: cannot set below highest logged jump
+      const maxJumpResult = await prisma.jump.aggregate({
+        where: { userId: user.id },
+        _max: { jumpNumber: true },
+      })
+      const maxJumpInDB = maxJumpResult._max.jumpNumber || 0
+
+      if (validated.currentJumpNumber < maxJumpInDB) {
+        return NextResponse.json(
+          { error: `Cannot set current jump number below your highest logged jump (#${maxJumpInDB})` },
+          { status: 400 }
+        )
+      }
+
       const currentUser = await prisma.user.findUnique({
         where: { id: user.id },
         select: { currentJumpNumber: true },

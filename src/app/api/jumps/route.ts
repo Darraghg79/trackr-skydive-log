@@ -120,6 +120,19 @@ export async function POST(request: NextRequest) {
     }
 
     const item = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Server-side jump number calculation — single source of truth
+      const [userRecord, maxJumpResult] = await Promise.all([
+        tx.user.findUnique({ where: { id: user.id }, select: { currentJumpNumber: true } }),
+        tx.jump.aggregate({ where: { userId: user.id }, _max: { jumpNumber: true } }),
+      ])
+
+      const maxJumpInDB = maxJumpResult._max.jumpNumber || 0
+      const currentJumpNumber = userRecord?.currentJumpNumber || 0
+      const correctNextJump = Math.max(currentJumpNumber, maxJumpInDB) + 1
+
+      // Override whatever the client sent with the server-calculated number
+      jumpData.jumpNumber = correctNextJump
+
       const jump = await tx.jump.create({
         data: { ...jumpData, userId: user.id },
       })
@@ -137,7 +150,7 @@ export async function POST(request: NextRequest) {
       await tx.user.update({
         where: { id: user.id },
         data: {
-          currentJumpNumber: jumpData.jumpNumber,
+          currentJumpNumber: correctNextJump,
         },
       })
 

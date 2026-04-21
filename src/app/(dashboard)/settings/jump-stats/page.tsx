@@ -16,6 +16,7 @@ export const dynamic = 'force-dynamic'
 export default function JumpStatsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [maxJumpInDB, setMaxJumpInDB] = useState(0)
   const [formData, setFormData] = useState({
     currentJumpNumber: 1,
     startingFreefallTime: "00:00:00",
@@ -35,6 +36,7 @@ export default function JumpStatsPage() {
       const res = await fetch("/api/user")
       const data = await res.json()
 
+      setMaxJumpInDB(data.maxJumpInDB || 0)
       setFormData({
         currentJumpNumber: data.currentJumpNumber || 1,
         startingFreefallTime: secondsToHHMMSS(data.startingFreefallTime || 0),
@@ -75,7 +77,8 @@ export default function JumpStatsPage() {
       })
 
       if (!res.ok) {
-        throw new Error("Failed to update settings")
+        const errorData = await res.json().catch(() => null)
+        throw new Error(errorData?.error || "Failed to update settings")
       }
 
       toast({
@@ -139,16 +142,22 @@ export default function JumpStatsPage() {
               <Input
                 id="currentJumpNumber"
                 type="number"
-                min="1"
+                min={maxJumpInDB || 1}
                 value={formData.currentJumpNumber}
-                onChange={(e) =>
-                  setFormData({ ...formData, currentJumpNumber: parseInt(e.target.value) || 1 })
-                }
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 1
+                  setFormData({ ...formData, currentJumpNumber: val })
+                }}
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Your next logged jump will be this number
+                Your next logged jump will be #{formData.currentJumpNumber ? formData.currentJumpNumber + 1 : '—'}
               </p>
+              {maxJumpInDB > 0 && formData.currentJumpNumber < maxJumpInDB && (
+                <p className="text-xs text-destructive">
+                  Cannot be lower than your highest logged jump (#{maxJumpInDB})
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

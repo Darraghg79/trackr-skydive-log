@@ -38,6 +38,8 @@ export default function AircraftDetailPage() {
   const [jumpCount, setJumpCount] = useState(0)
   const [otherAircrafts, setOtherAircrafts] = useState<any[]>([])
   const [mergeIntoId, setMergeIntoId] = useState<string>("")
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false)
+  const [duplicateName, setDuplicateName] = useState("")
 
   useEffect(() => {
     if (params.id) {
@@ -167,6 +169,32 @@ export default function AircraftDetailPage() {
     }
   }
 
+  // ── Duplicate name handling ────────────────────────────────────────────────
+  const handleDuplicateName = async (name: string) => {
+    setDuplicateName(name)
+    try {
+      const others = await fetchOtherAircrafts()
+      setOtherAircrafts(others)
+      const match = others.find((a: any) => a.name.toLowerCase() === name.toLowerCase())
+      if (match) {
+        setMergeIntoId(match.id)
+      }
+      // Get jump count for this aircraft
+      const jumpsRes = await fetch(`/api/jumps?aircraftId=${params.id}&limit=1`)
+      const jumpsData = await jumpsRes.json()
+      setJumpCount(jumpsData.pagination?.total || 0)
+      setShowDuplicateDialog(true)
+    } catch {
+      toast({ title: "Error", description: "Failed to check aircraft", variant: "destructive" })
+    }
+  }
+
+  const handleDuplicateMerge = () => {
+    if (!mergeIntoId) return
+    handleDelete(mergeIntoId)
+    setShowDuplicateDialog(false)
+  }
+
   const handleMergeConfirm = () => {
     if (!mergeIntoId) {
       toast({ title: "Please select an aircraft", description: "Choose which aircraft to merge into", variant: "destructive" })
@@ -215,7 +243,7 @@ export default function AircraftDetailPage() {
         </div>
       </div>
 
-      <UserAircraftForm initialData={aircraft} />
+      <UserAircraftForm initialData={aircraft} onDuplicateName={handleDuplicateName} />
 
       {/* Simple Delete Confirmation (no jumps using this aircraft) */}
       <ConfirmDialog
@@ -227,6 +255,40 @@ export default function AircraftDetailPage() {
         confirmLabel="Delete"
         loading={deleting}
       />
+
+      {/* Duplicate Name Dialog */}
+      <Dialog open={showDuplicateDialog} onOpenChange={setShowDuplicateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Aircraft Already Exists
+            </DialogTitle>
+            <DialogDescription>
+              An aircraft called <strong>&ldquo;{duplicateName}&rdquo;</strong> already exists.
+              {jumpCount > 0
+                ? ` You can merge ${jumpCount} jump${jumpCount !== 1 ? "s" : ""} from "${aircraft.name}" into it.`
+                : ` You can delete "${aircraft.name}" since it has no jumps.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDuplicateDialog(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button onClick={handleDuplicateMerge} disabled={deleting || !mergeIntoId}>
+              {deleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {jumpCount > 0 ? "Merging..." : "Deleting..."}
+                </>
+              ) : (
+                jumpCount > 0 ? "Merge & Delete" : "Delete Duplicate"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Merge Dialog (also used when deleting aircraft that has jumps) */}
       <Dialog open={showMerge} onOpenChange={setShowMerge}>

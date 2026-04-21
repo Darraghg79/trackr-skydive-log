@@ -17,9 +17,10 @@ interface UserAircraftFormProps {
     isActive: boolean
   }
   onSuccess?: () => void
+  onDuplicateName?: (name: string) => void
 }
 
-export function UserAircraftForm({ initialData, onSuccess }: UserAircraftFormProps) {
+export function UserAircraftForm({ initialData, onSuccess, onDuplicateName }: UserAircraftFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -44,14 +45,21 @@ export function UserAircraftForm({ initialData, onSuccess }: UserAircraftFormPro
         body: JSON.stringify(formData),
       })
 
-      if (!res.ok) throw new Error("Failed to save aircraft")
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null)
+        if (res.status === 409 && onDuplicateName) {
+          onDuplicateName(formData.name)
+          return
+        }
+        throw new Error(errorData?.error || "Failed to save aircraft")
+      }
 
       onSuccess?.()
       router.push("/aircraft")
       router.refresh()
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving aircraft:", error)
-      alert("Failed to save aircraft")
+      alert(error.message || "Failed to save aircraft")
     } finally {
       setLoading(false)
     }

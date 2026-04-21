@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { createClient } from '@/lib/supabase/server'
 import { UserAircraftUpdateSchema } from '@/lib/validations/user-aircraft'
 import { ZodError } from 'zod'
@@ -66,6 +67,9 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json({ error: 'Validation failed', details: error.errors }, { status: 400 })
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return NextResponse.json({ error: 'An aircraft with that name already exists' }, { status: 409 })
     }
     console.error('PATCH /api/user-aircrafts/[id] error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

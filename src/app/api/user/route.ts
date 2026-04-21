@@ -49,7 +49,6 @@ export async function GET(request: NextRequest) {
     ])
 
     const maxJumpInDB = maxJumpResult._max.jumpNumber || 0
-    const totalJumps = maxJumpInDB
     const thisMonthJumps = thisMonthCount
     const totalFreefallSeconds = (freefallSum._sum.freefallTime || 0) + (profile.startingFreefallTime || 0)
     const totalCutaways = cutawayCount + (profile.startingCutaways || 0)
@@ -65,6 +64,9 @@ export async function GET(request: NextRequest) {
         data: { currentJumpNumber: reconciledJumpNumber },
       })
     }
+
+    // totalJumps = currentJumpNumber (what skydivers care about, not row count)
+    const totalJumps = reconciledJumpNumber
 
     return NextResponse.json({ ...profile, currentJumpNumber: reconciledJumpNumber, totalJumps, thisMonthJumps, totalFreefallSeconds, totalCutaways, maxJumpInDB })
   } catch (error) {

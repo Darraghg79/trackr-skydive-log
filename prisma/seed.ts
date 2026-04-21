@@ -20,17 +20,20 @@ const GLOBAL_AIRCRAFT = [
 
 // Global jump types — seeded into GlobalJumpType table (shared, not per-user)
 const GLOBAL_JUMP_TYPES = [
-  { name: 'Freefall', sortOrder: 0 },
-  { name: 'AFF (Level)', sortOrder: 1 },
-  { name: 'Belly Flying', sortOrder: 2 },
-  { name: 'Freefly', sortOrder: 3 },
-  { name: 'Wingsuit', sortOrder: 4 },
-  { name: 'Tracking', sortOrder: 5 },
-  { name: 'Angle', sortOrder: 6 },
-  { name: 'Canopy Piloting / Swooping', sortOrder: 7 },
-  { name: 'BASE', sortOrder: 8 },
-  { name: 'Water Jump', sortOrder: 9 },
-  { name: 'Demo Jump', sortOrder: 10 },
+  { name: 'AFF', sortOrder: 0 },
+  { name: 'Angle/Tracking', sortOrder: 1 },
+  { name: 'Belly/RW', sortOrder: 2 },
+  { name: 'Camera Jump', sortOrder: 3 },
+  { name: 'Canopy Piloting', sortOrder: 4 },
+  { name: 'CRW', sortOrder: 5 },
+  { name: 'Coach', sortOrder: 6 },
+  { name: 'Demo Jump', sortOrder: 7 },
+  { name: 'Freefly', sortOrder: 8 },
+  { name: 'High Pull', sortOrder: 9 },
+  { name: 'Hop & Pop', sortOrder: 10 },
+  { name: 'Speed', sortOrder: 11 },
+  { name: 'Tandem', sortOrder: 12 },
+  { name: 'Wingsuit', sortOrder: 13 },
 ]
 
 // Default aircraft types - sorted alphabetically
@@ -63,13 +66,16 @@ const DEFAULT_AIRCRAFT = [
 // Default jump types - sorted alphabetically
 const DEFAULT_JUMP_TYPES = [
   'AFF',
-  'Angle / Tracking',
+  'Angle/Tracking',
+  'Belly/RW',
+  'Camera Jump',
+  'Canopy Piloting',
   'CRW',
+  'Coach',
+  'Demo Jump',
   'Freefly',
   'High Pull',
   'Hop & Pop',
-  'Hybrid',
-  'Relative Work',
   'Speed',
   'Tandem',
   'Wingsuit',
@@ -482,7 +488,7 @@ async function main() {
           data: {
             name: jumpType,
             userId: user.id,
-            isDefault: jumpType === 'Relative Work',
+            isDefault: false,
           },
         })
       }

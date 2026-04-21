@@ -192,6 +192,26 @@ npx prisma db pull         # Pull schema from DB (only if needed)
 
 ---
 
+## Invoice Pre-flight Decisions
+
+**Implemented: 2026-04-21 (F-INVOICE-PREFLIGHT)**
+
+When the user clicks "Create Invoice" on `invoices/dropzone/[id]/page.tsx`, a client-side pre-flight check runs before any API call. If any required fields are missing (user name/address, DZ contact/email/address/currency, or rates for the specific jump types being invoiced), a modal (`InvoicePreflightModal.tsx`) collects them all in one form.
+
+Key decisions:
+- **Rate check is targeted** — only requires rates for `workJumpType` values present in the actual jumps being invoiced (not all 4 rate types). Handcam rate only required if `canInvoiceHandcam` is true on any jump.
+- **The old `hasRatesConfigured` warning banner is removed** — the preflight modal handles this case more precisely.
+- **No new API routes** — uses existing `PATCH /api/user` and `PATCH /api/dropzones/[id]`.
+- **`invoiceStartingNumber` fetched from `/api/user`** directly in the page (replaces previous `/api/auth/me` call).
+- **`WORK_TYPE_RATE_KEY` map** used in both the API route and the page for rate lookups (avoids string transform bugs like `rateAff` vs `rateAFF`).
+- The `Dropzone` interface in the page now includes `contactName`, `contactEmail`, `address` so preflight can check them.
+
+Key files:
+- `src/components/invoices/InvoicePreflightModal.tsx` — new modal component
+- `src/app/(dashboard)/invoices/dropzone/[id]/page.tsx` — pre-flight check + modal state
+
+---
+
 ## Roadmap — Future Features
 
 ### F-IMPORT-BG: Background CSV Import (Priority: High)

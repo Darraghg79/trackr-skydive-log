@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/useToast"
 import { ArrowLeft, Calendar, Check } from "lucide-react"
 import { format } from "date-fns"
 import { formatCurrency } from "@/lib/utils/currencyFormat"
+import { InvoicePreflightModal } from "@/components/invoices/InvoicePreflightModal"
 
 interface UninvoicedJump {
   id: string
@@ -25,6 +26,9 @@ interface UninvoicedJump {
 interface Dropzone {
   id: string
   name: string
+  contactName: string | null
+  contactEmail: string | null
+  address: string | null
   rateAFF: number | null
   rateTandem: number | null
   rateCamera: number | null
@@ -32,6 +36,21 @@ interface Dropzone {
   rateHandcam: number | null
   taxRate: number | null
   currency: string | null
+}
+
+interface UserProfile {
+  name: string | null
+  address: string | null
+  invoiceStartingNumber: number | null
+  taxRegistrationNumber: string | null
+  remittanceDetails: string | null
+}
+
+const WORK_TYPE_RATE_KEY: Record<string, keyof Dropzone> = {
+  AFF: "rateAFF",
+  TANDEM: "rateTandem",
+  CAMERA: "rateCamera",
+  COACH: "rateCoach",
 }
 
 export default function DropzoneInvoicePage() {
@@ -42,10 +61,26 @@ export default function DropzoneInvoicePage() {
   const [dropzone, setDropzone] = useState<Dropzone | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [showPreflightModal, setShowPreflightModal] = useState(false)
+  const [missingFields, setMissingFields] = useState<any>(null)
 
   useEffect(() => {
     fetchUninvoicedJumps()
+    fetchUserProfile()
   }, [params.id])
+
+  const fetchUserProfile = async () => {
+    try {
+      const res = await fetch("/api/user")
+      if (res.ok) {
+        const data = await res.json()
+        setUserProfile(data)
+      }
+    } catch {
+      // non-fatal — preflight check will treat profile fields as missing
+    }
+  }
 
   const fetchUninvoicedJumps = async () => {
     try {
@@ -73,19 +108,8 @@ export default function DropzoneInvoicePage() {
     jumpType: "AFF" | "TANDEM" | "CAMERA" | "COACH"
   ): number => {
     if (!dropzone) return 0
-
-    switch (jumpType) {
-      case "AFF":
-        return Number(dropzone.rateAFF || 0)
-      case "TANDEM":
-        return Number(dropzone.rateTandem || 0)
-      case "CAMERA":
-        return Number(dropzone.rateCamera || 0)
-      case "COACH":
-        return Number(dropzone.rateCoach || 0)
-      default:
-        return 0
-    }
+    const key = WORK_TYPE_RATE_KEY[jumpType]
+    return Number(dropzone[key] || 0)
   }
 
   const calculateTotals = () => {
@@ -95,13 +119,10 @@ export default function DropzoneInvoicePage() {
     let itemCount = 0
 
     jumps.forEach((jump) => {
-      // Base jump - only if it can be invoiced
       if (jump.canInvoiceBaseJump) {
         subtotal += getRateForJumpType(jump.workJumpType)
         itemCount++
       }
-
-      // Handcam - only if it can be invoiced
       if (jump.canInvoiceHandcam) {
         subtotal += Number(dropzone.rateHandcam || 0)
         itemCount++
@@ -115,23 +136,81 @@ export default function DropzoneInvoicePage() {
     return { subtotal, tax, total, taxRate, itemCount }
   }
 
+  const checkPreflight = () => {
+    const missing = {
+      user: {
+        name: !userProfile?.name,
+        address: !userProfile?.address,
+        taxRegistrationNumber: !userProfile?.taxRegistrationNumber,
+        remittanceDetails: !userProfile?.remittanceDetails,
+      },
+      dropzone: {
+        contactName: !dropzone?.contactName,
+        contactEmail: !dropzone?.contactEmail,
+        address: !dropzone?.address,
+        currency: !dropzone?.currency,
+      },
+      rates: {} as Record<string, boolean>,
+    }
+
+    const neededTypes = new Set(
+      jumps.filter((j) => j.canInvoiceBaseJump).map((j) => j.workJumpType)
+    )
+    const needsHandcam = jumps.some((j) => j.canInvoiceHandcam)
+
+    neededTypes.forEach((type) => {
+      const rateKey = WORK_TYPE_RATE_KEY[type] as string
+      if (rateKey && !Number(dropzone?.[rateKey as keyof Dropzone] || 0)) {
+        missing.rates[rateKey] = true
+      }
+    })
+
+    if (needsHandcam && !Number(dropzone?.rateHandcam || 0)) {
+      missing.rates.rateHandcam = true
+    }
+
+    const hasMissing =
+      Object.values(missing.user).some(Boolean) ||
+      Object.values(missing.dropzone).some(Boolean) ||
+      Object.keys(missing.rates).length > 0
+
+    return { missing, hasMissing }
+  }
+
+  const handleCreateInvoiceClick = () => {
+    const { missing, hasMissing } = checkPreflight()
+    if (hasMissing) {
+      setMissingFields(missing)
+      setShowPreflightModal(true)
+    } else {
+      handleCreateInvoice()
+    }
+  }
+
+  const handlePreflightComplete = async () => {
+    await fetchUninvoicedJumps()
+    const userRes = await fetch("/api/user")
+    if (userRes.ok) {
+      const userData = await userRes.json()
+      setUserProfile(userData)
+    }
+    setShowPreflightModal(false)
+    handleCreateInvoice()
+  }
+
   const handleCreateInvoice = async () => {
     if (!dropzone) return
 
     setSubmitting(true)
 
     try {
-      // Get user's invoice starting number
-      const userRes = await fetch("/api/auth/me")
-      const userData = await userRes.json()
       const invoiceNumber = String(
-        userData.invoiceStartingNumber || 1
+        userProfile?.invoiceStartingNumber || 1
       ).padStart(4, "0")
 
       const lineItems: any[] = []
 
       jumps.forEach((jump) => {
-        // Add base jump line item - only if it can be invoiced
         if (jump.canInvoiceBaseJump) {
           const baseRate = getRateForJumpType(jump.workJumpType)
           lineItems.push({
@@ -144,7 +223,6 @@ export default function DropzoneInvoicePage() {
           })
         }
 
-        // Add handcam line item - only if it can be invoiced
         if (jump.canInvoiceHandcam) {
           const handcamRate = Number(dropzone.rateHandcam || 0)
           lineItems.push({
@@ -232,11 +310,6 @@ export default function DropzoneInvoicePage() {
 
   const { subtotal, tax, total, taxRate, itemCount } = calculateTotals()
 
-  const hasRatesConfigured = !!(
-    dropzone.rateAFF || dropzone.rateTandem || dropzone.rateCamera ||
-    dropzone.rateCoach || dropzone.rateHandcam
-  )
-
   return (
     <div className="space-y-6 pb-80 md:pb-32">
       <div className="flex items-center gap-4">
@@ -250,20 +323,6 @@ export default function DropzoneInvoicePage() {
           </p>
         </div>
       </div>
-
-      {!hasRatesConfigured && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-4">
-          <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
-            No rates configured for this dropzone
-          </p>
-          <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-            Set at least one rate (AFF, Tandem, Camera, Coach, or Handcam) before creating an invoice.{" "}
-            <a href={`/dropzones/${params.id}`} className="underline font-medium">
-              Edit dropzone rates →
-            </a>
-          </p>
-        </div>
-      )}
 
       <div className="space-y-3">
         {jumps.map((jump) => {
@@ -360,8 +419,8 @@ export default function DropzoneInvoicePage() {
             <Button
               className="w-full"
               size="lg"
-              onClick={handleCreateInvoice}
-              disabled={submitting || !hasRatesConfigured}
+              onClick={handleCreateInvoiceClick}
+              disabled={submitting}
             >
               {submitting ? "Creating Invoice..." : "Create Invoice"}
             </Button>
@@ -403,13 +462,35 @@ export default function DropzoneInvoicePage() {
           <Button
             className="w-full mt-4"
             size="lg"
-            onClick={handleCreateInvoice}
+            onClick={handleCreateInvoiceClick}
             disabled={submitting}
           >
             {submitting ? "Creating Invoice..." : "Create Invoice"}
           </Button>
         </CardContent>
       </Card>
+
+      {missingFields && (
+        <InvoicePreflightModal
+          open={showPreflightModal}
+          onClose={() => setShowPreflightModal(false)}
+          onComplete={handlePreflightComplete}
+          missingFields={missingFields}
+          currentUser={{
+            name: userProfile?.name || undefined,
+            address: userProfile?.address || undefined,
+            taxRegistrationNumber: userProfile?.taxRegistrationNumber || undefined,
+            remittanceDetails: userProfile?.remittanceDetails || undefined,
+          }}
+          currentDropzone={{
+            id: dropzone.id,
+            contactName: dropzone.contactName,
+            contactEmail: dropzone.contactEmail,
+            address: dropzone.address,
+            currency: dropzone.currency,
+          }}
+        />
+      )}
     </div>
   )
 }

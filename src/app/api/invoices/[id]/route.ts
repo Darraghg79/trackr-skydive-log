@@ -5,6 +5,14 @@ import { InvoiceUpdateSchema } from '@/lib/validations/invoice'
 import { ZodError } from 'zod'
 import { Prisma } from '@prisma/client'
 
+// Map WorkJumpType enum to dropzone rate column
+const WORK_TYPE_RATE_KEY: Record<string, string> = {
+  AFF: 'rateAFF',
+  TANDEM: 'rateTandem',
+  CAMERA: 'rateCamera',
+  COACH: 'rateCoach',
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -94,8 +102,8 @@ export async function GET(
 
         // Add base jump line item if not already invoiced
         if (!hasBaseJumpInSentOrPaid && jump.workJumpType) {
-          const rateKey = `rate${jump.workJumpType.charAt(0)}${jump.workJumpType.slice(1).toLowerCase()}` as keyof typeof item.dropzone
-          const unitPrice = Number(item.dropzone[rateKey] || 0)
+          const rateKey = (WORK_TYPE_RATE_KEY[jump.workJumpType] || 'rateTandem') as keyof typeof item.dropzone
+          const unitPrice = Number((item.dropzone[rateKey] as number | null) || 0)
 
           dynamicLineItems.push({
             id: `dynamic-base-${jump.id}`,
@@ -260,8 +268,8 @@ export async function PATCH(
 
           // Add base jump line item if not already invoiced
           if (!hasBaseJumpInSentOrPaid && jump.workJumpType) {
-            const rateKey = `rate${jump.workJumpType.charAt(0)}${jump.workJumpType.slice(1).toLowerCase()}` as keyof typeof existing.dropzone
-            const unitPrice = Number(existing.dropzone[rateKey] || 0)
+            const rateKey = (WORK_TYPE_RATE_KEY[jump.workJumpType] || 'rateTandem') as keyof typeof existing.dropzone
+            const unitPrice = Number((existing.dropzone[rateKey] as number | null) || 0)
 
             lineItemsToCreate.push({
               invoiceId: id,

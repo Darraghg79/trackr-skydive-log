@@ -396,42 +396,28 @@ export const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice }) => {
             <Text style={[styles.col4, { width: '40%', textAlign: 'left' }]}>Customer Name</Text>
           </View>
 
-          {(() => {
-            // Deduplicate jumps - show each jump only once
-            const uniqueJumps = new Map<string, typeof invoice.lineItems[0]>()
-            invoice.lineItems.forEach(item => {
-              const jumpId = item.jump.id || item.jumpId || item.id
-              if (jumpId && !uniqueJumps.has(jumpId)) {
-                uniqueJumps.set(jumpId, item)
-              }
-            })
+          {invoice.lineItems
+            .sort((a: any, b: any) => a.jump.jumpNumber - b.jump.jumpNumber)
+            .map((item: any) => {
+              // Display work jump type, appending " - Handcam" for handcam add-ons
+              const displayType = item.itemType === 'HANDCAM_ADDON'
+                ? `${item.workJumpType} - Handcam`
+                : item.workJumpType
 
-            return Array.from(uniqueJumps.values())
-              .sort((a, b) => a.jump.jumpNumber - b.jump.jumpNumber)
-              .map((item) => {
-                // Determine work type display:
-                // If it's a TANDEM jump with handcam, show "HANDCAM"
-                // Otherwise show the workJumpType
-                let displayType = item.workJumpType
-                if (item.workJumpType === 'TANDEM' && item.jump.hasHandcam) {
-                  displayType = 'HANDCAM'
-                }
-
-                return (
-                  <View key={item.id} style={styles.tableRow}>
-                    <Text style={[styles.col2, { width: '30%' }]}>
-                      {format(new Date(item.jump.date), 'MMM d, yyyy')}
-                    </Text>
-                    <Text style={[styles.col3, { width: '30%', textAlign: 'left' }]}>
-                      {displayType}
-                    </Text>
-                    <Text style={[styles.col4, { width: '40%', textAlign: 'left' }]}>
-                      {item.jump.customerName || '-'}
-                    </Text>
-                  </View>
-                )
-              })
-          })()}
+              return (
+                <View key={item.id} style={styles.tableRow}>
+                  <Text style={[styles.col2, { width: '30%' }]}>
+                    {format(new Date(item.jump.date), 'MMM d, yyyy')}
+                  </Text>
+                  <Text style={[styles.col3, { width: '30%', textAlign: 'left' }]}>
+                    {displayType}
+                  </Text>
+                  <Text style={[styles.col4, { width: '40%', textAlign: 'left' }]}>
+                    {item.jump.customerName || '-'}
+                  </Text>
+                </View>
+              )
+            })}
         </View>
 
         <View style={styles.footer}>

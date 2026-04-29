@@ -1,6 +1,13 @@
 import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
 
-export default function RootPage() {
-  // Redirect to login - middleware will handle authenticated users
-  redirect("/login")
+export default async function RootPage() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user) {
+    redirect("/jumps")
+  } else {
+    redirect("/login")
+  }
 }

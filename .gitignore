@@ -35,7 +35,8 @@ yarn-error.log*
 next-env.d.ts
 
 # prisma
-/prisma/migrations
+# Migrations MUST be committed so prisma migrate deploy can run in CI/Vercel.
+# /prisma/migrations
 
 # IDE
 .idea

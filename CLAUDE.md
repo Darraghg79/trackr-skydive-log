@@ -346,3 +346,39 @@ When adding `hasCompletedOnboarding`, existing users were backfilled to `true` B
 - `src/lib/validations/user.ts` — `UserProfileUpdateSchema` includes `hasCompletedOnboarding`, `isWorkingSkydiver`
 
 *Last updated: March 2026 — F2 Onboarding Wizard implemented*
+
+---
+
+## RLS Hardening Decisions
+
+**Implemented: 2026-04-29 (F-RLS-HARDENING)**
+
+Row Level Security is now enabled on all 17 tables in the `public` schema as defence-in-depth.
+
+### Key facts
+
+- **Prisma postgres role bypasses RLS** — all existing app behaviour is completely unchanged. Prisma connects as `postgres`, which is a superuser that always bypasses RLS. The policies are a backstop for any future bug, any future direct Supabase JS client usage, or any unanticipated query path.
+- **The 17 original ERROR-level security advisor warnings are gone.** Only two items remain: an INFO on `_prisma_migrations` (intentional — no policies means anon/authenticated are denied, which is correct) and a WARN for leaked-password protection (manual Supabase dashboard toggle — see below).
+- **Migration name:** `20260429111229_enable_rls`
+
+### Policy patterns used
+
+| Table type | Pattern |
+|-----------|---------|
+| User-scoped (`userId` column) | `(SELECT auth.uid())::text = "userId"` |
+| `users` table (`id` is the user key) | `(SELECT auth.uid())::text = id` |
+| Child tables (no `userId`, owned via parent) | `EXISTS (SELECT 1 FROM parent WHERE parent.id = child."parentId" AND parent."userId" = (SELECT auth.uid())::text)` |
+| Global reference data | `FOR SELECT TO authenticated USING (true)` — no INSERT/UPDATE/DELETE |
+| `_prisma_migrations` | RLS enabled, intentionally no policies — postgres bypasses; anon/authenticated denied |
+
+The `(SELECT auth.uid())` wrapping (not bare `auth.uid()`) is deliberate — Supabase recommends it so the planner caches the result via initPlan optimisation, avoiding a round-trip per row on large tables like `jumps` (1,487 rows) and `jump_gear_components` (1,970 rows).
+
+### To future developers: if you add a new table
+
+You **must** also enable RLS and add an appropriate policy. Otherwise the Supabase security advisor will flag it as an ERROR. Use the patterns above. The migration to reference is `20260429111229_enable_rls`.
+
+### Manual step still outstanding
+
+Enable HaveIBeenPwned leaked-password protection in the Supabase dashboard:
+- Authentication → Policies → Password security → toggle **"Check passwords against HaveIBeenPwned"** ON
+- Direct link: https://supabase.com/dashboard/project/agcemldzcdnmhamfybse/auth/policies

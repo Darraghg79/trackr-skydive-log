@@ -48,7 +48,18 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch (error) {
+    // Network unreachable (common on iOS PWA cold start before WiFi is up).
+    // Fall back to the local cookie session — if a cookie exists, assume it's
+    // valid until we can re-verify on the next request.
+    const { data } = await supabase.auth.getSession()
+    user = data.session?.user ?? null
+    console.warn('[middleware] getUser failed, fell back to local session:', error)
+  }
 
   // Define protected routes (all dashboard pages + onboarding)
   const protectedRoutes = [

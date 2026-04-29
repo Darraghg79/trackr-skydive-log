@@ -382,3 +382,27 @@ You **must** also enable RLS and add an appropriate policy. Otherwise the Supaba
 Enable HaveIBeenPwned leaked-password protection in the Supabase dashboard:
 - Authentication → Policies → Password security → toggle **"Check passwords against HaveIBeenPwned"** ON
 - Direct link: https://supabase.com/dashboard/project/agcemldzcdnmhamfybse/auth/policies
+
+---
+
+## PWA Auth Decisions
+
+**Implemented: 2026-04-29 (F-PWA-PERSISTENT-LOGIN / B16)**
+
+Fixes iOS PWA users being logged out on every cold-start reopen.
+
+### Root causes fixed
+
+1. **`start_url` was `/`** — every PWA cold-start hit the root page, which unconditionally redirected to `/login`. Now `public/manifest.json` has `"start_url": "/jumps"`, landing authenticated users directly on their logbook.
+
+2. **`src/app/page.tsx` was a blindly-redirecting sync component** — replaced with an async Server Component that calls `supabase.auth.getUser()` and redirects to `/jumps` if authenticated, `/login` otherwise. This makes `/` safe to land on directly (bookmark, link, manifest fallback).
+
+3. **`middleware.ts` `getUser()` had no network-failure fallback** — `getUser()` makes a live Supabase Auth network call. On iOS PWA cold-start, networking is often not ready yet (race between WiFi and the app launch), so the call returned null user, triggering a `/login` redirect. Wrapped in try/catch; the catch falls back to `supabase.auth.getSession()` (cookie-local, no network). This grants the user one request's grace period — the actual API calls on the destination page still verify the JWT.
+
+4. **iOS splash screens were not wired** — 44 PNGs in `public/splash_screens/` now have matching `<link rel="apple-touch-startup-image">` tags in `src/app/layout.tsx` via `metadata.appleWebApp.startupImage`. Cover iPhone SE (4") through iPhone 17 Pro Max and all iPad sizes, portrait + landscape.
+
+### Key files
+- `public/manifest.json` — `start_url` changed to `/jumps`
+- `src/app/page.tsx` — session-aware async server component
+- `middleware.ts` — `getUser()` wrapped in try/catch with `getSession()` fallback
+- `src/app/layout.tsx` — `appleWebApp.startupImage` array with 44 splash screen entries

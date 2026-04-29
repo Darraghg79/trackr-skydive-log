@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useRef, Suspense } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -11,10 +11,12 @@ import { Input } from "@/components/ui/input"
 import { EmptyState } from "@/components/shared/EmptyState"
 import { PageLoader } from "@/components/shared/LoadingSpinner"
 import { useToast } from "@/hooks/useToast"
-import { Plus, Plane, Calendar, MapPin, Loader2, PenTool, CheckCircle2, Search, X, Copy } from "lucide-react"
+import {
+  Plus, Plane, Calendar, MapPin, Loader2, PenTool, CheckCircle2,
+  X, Copy, ListChecks, Video,
+} from "lucide-react"
 import { format } from "date-fns"
 import { BulkSignatureModal } from "@/components/jumps/BulkSignatureModal"
-
 
 interface Jump {
   id: string
@@ -24,6 +26,7 @@ interface Jump {
   workJumpType?: string
   customerName?: string
   isCutaway: boolean
+  hasHandcam: boolean
   exitAltitude?: number
   deploymentAltitude?: number
   freefallTime?: number
@@ -32,6 +35,19 @@ interface Jump {
   aircraft?: { id: string; name: string } | null
   jumpType?: { id: string; name: string } | null
   signatures?: Array<{ id: string }>
+}
+
+// Reads the ?showSearch URL param and syncs it to parent state.
+// Must be wrapped in <Suspense> since it calls useSearchParams().
+function SearchParamSyncer({ onShow }: { onShow: (v: boolean) => void }) {
+  const searchParams = useSearchParams()
+  const show = searchParams.get('showSearch') === '1'
+  const onShowRef = useRef(onShow)
+  onShowRef.current = onShow
+  useEffect(() => {
+    onShowRef.current(show)
+  }, [show])
+  return null
 }
 
 export default function JumpsPage() {
@@ -60,7 +76,6 @@ export default function JumpsPage() {
     if (debouncedSearch.trim()) {
       fetchData(debouncedSearch)
     } else if (searchQuery === "" && debouncedSearch === "") {
-      // Only refetch when search is cleared
       fetchData()
     }
   }, [debouncedSearch])
@@ -69,17 +84,13 @@ export default function JumpsPage() {
     try {
       const timestamp = Date.now()
       const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ''
-      const [jumpsRes, userRes] = await Promise.all([
+      const [jumpsRes] = await Promise.all([
         fetch(`/api/jumps?limit=50&orderBy=jumpNumber&order=desc${searchParam}&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/user?t=${timestamp}`, { cache: 'no-store' })
       ])
 
-      const [jumpsData, userData] = await Promise.all([
-        jumpsRes.json(),
-        userRes.json()
-      ])
+      const jumpsData = await jumpsRes.json()
 
-      console.log("Fetched jumps:", jumpsData.data?.length || 0, "total:", jumpsData.pagination?.total || 0)
       setJumps(jumpsData.data || [])
       setTotal(jumpsData.pagination?.total || 0)
       setHasMore(jumpsData.pagination?.hasMore || false)
@@ -103,7 +114,6 @@ export default function JumpsPage() {
       )
       const data = await response.json()
 
-      console.log("Loaded more jumps:", data.data?.length || 0)
       setJumps([...jumps, ...(data.data || [])])
       setHasMore(data.pagination?.hasMore || false)
     } catch (error) {
@@ -118,7 +128,6 @@ export default function JumpsPage() {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery)
     }, 300)
-
     return () => clearTimeout(timer)
   }, [searchQuery])
 
@@ -129,14 +138,14 @@ export default function JumpsPage() {
     }
   }, [showSearch])
 
-  const toggleSearchMode = useCallback(() => {
-    setShowSearch(!showSearch)
-    if (showSearch) {
-      // Clear search when closing
-      setSearchQuery("")
-      setDebouncedSearch("")
-    }
-  }, [showSearch])
+  // Close search bar and clear query when user dismisses
+  const closeSearch = useCallback(() => {
+    setShowSearch(false)
+    setSearchQuery("")
+    setDebouncedSearch("")
+    // Clear the URL param so the header icon reflects closed state
+    router.replace('/jumps')
+  }, [router])
 
   const clearSearch = useCallback(() => {
     setSearchQuery("")
@@ -151,18 +160,15 @@ export default function JumpsPage() {
     e.stopPropagation()
 
     try {
-      // Fetch the full jump data
       const response = await fetch(`/api/jumps/${jumpId}`)
       if (!response.ok) throw new Error("Failed to fetch jump")
       const jump = await response.json()
 
-      // Create a copy of jump data, excluding customer name if it's a work jump
       const jumpDataToCopy = {
         ...jump,
         customerName: jump.isWorkJump ? undefined : jump.customerName,
       }
 
-      // Store in sessionStorage to pass to new jump form
       sessionStorage.setItem("copyJumpData", JSON.stringify(jumpDataToCopy))
 
       toast({
@@ -171,7 +177,7 @@ export default function JumpsPage() {
       })
 
       router.push("/jumps/new")
-    } catch (error) {
+    } catch {
       toast({
         title: "Failed to copy jump",
         variant: "destructive",
@@ -225,8 +231,6 @@ export default function JumpsPage() {
       setShowSignatureModal(false)
       setSelectedJumps(new Set())
       setSignatureMode(false)
-
-      // Refresh data to show signature indicators
       fetchData()
     } catch (error) {
       toast({
@@ -241,6 +245,11 @@ export default function JumpsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Sync ?showSearch URL param → local state (header search icon controls this) */}
+      <Suspense fallback={null}>
+        <SearchParamSyncer onShow={setShowSearch} />
+      </Suspense>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Jumps</h1>
@@ -255,18 +264,22 @@ export default function JumpsPage() {
           {jumps.length > 0 && (
             <>
               <Button
-                variant={showSearch ? "default" : "outline"}
-                size="icon"
-                onClick={toggleSearchMode}
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-              <Button
                 variant={signatureMode ? "default" : "outline"}
                 size="icon"
                 onClick={toggleSignatureMode}
+                title="Sign jumps"
               >
                 <PenTool className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                asChild
+                title="Quick Edit"
+              >
+                <Link href="/jumps/quick-edit">
+                  <ListChecks className="h-4 w-4" />
+                </Link>
               </Button>
             </>
           )}
@@ -279,30 +292,27 @@ export default function JumpsPage() {
         </div>
       </div>
 
-      {/* Search Bar */}
+      {/* Search Bar — shown when header Search icon is active */}
       {showSearch && (
         <Card>
           <CardContent className="p-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 ref={searchInputRef}
                 type="text"
                 placeholder="Search jumps..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-10"
+                className="pr-10"
               />
-              {searchQuery && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8"
-                  onClick={clearSearch}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                onClick={closeSearch}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -319,7 +329,6 @@ export default function JumpsPage() {
       ) : jumps.length === 0 && debouncedSearch ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">No jumps match your search</h3>
             <p className="text-muted-foreground mb-4">
               Try searching for jump numbers, dropzones, aircraft, customer names, or notes
@@ -334,6 +343,7 @@ export default function JumpsPage() {
           <div className="space-y-3">
             {jumps.map((jump) => {
               const isSigned = jump.signatures && jump.signatures.length > 0
+              const isTandemWithHandcam = jump.workJumpType === 'TANDEM' && jump.hasHandcam
 
               return (
                 <div key={jump.id} className="relative">
@@ -372,6 +382,12 @@ export default function JumpsPage() {
                                 {jump.isWorkJump && (
                                   <Badge variant="secondary">
                                     {jump.workJumpType}
+                                  </Badge>
+                                )}
+                                {isTandemWithHandcam && (
+                                  <Badge variant="outline" className="gap-1">
+                                    <Video className="h-3 w-3" />
+                                    Handcam
                                   </Badge>
                                 )}
                                 {jump.isCutaway && (
@@ -421,6 +437,12 @@ export default function JumpsPage() {
                                     {jump.workJumpType}
                                   </Badge>
                                 )}
+                                {isTandemWithHandcam && (
+                                  <Badge variant="outline" className="gap-1">
+                                    <Video className="h-3 w-3" />
+                                    Handcam
+                                  </Badge>
+                                )}
                                 {jump.isCutaway && (
                                   <Badge variant="destructive">Cutaway</Badge>
                                 )}
@@ -468,15 +490,12 @@ export default function JumpsPage() {
                     Loading...
                   </>
                 ) : (
-                  <>
-                    Load More Jumps
-                  </>
+                  <>Load More Jumps</>
                 )}
               </Button>
             </div>
           )}
 
-          {/* End of List Indicator */}
           {!debouncedSearch && !hasMore && jumps.length > 0 && (
             <div className="text-center pt-4">
               <p className="text-sm text-muted-foreground">
@@ -485,7 +504,6 @@ export default function JumpsPage() {
             </div>
           )}
 
-          {/* Search Info */}
           {debouncedSearch && jumps.length > 0 && (
             <div className="text-center pt-4">
               <p className="text-sm text-muted-foreground">
@@ -508,7 +526,6 @@ export default function JumpsPage() {
             </div>
           )}
 
-          {/* Bulk Signature Modal */}
           <BulkSignatureModal
             open={showSignatureModal}
             onOpenChange={setShowSignatureModal}

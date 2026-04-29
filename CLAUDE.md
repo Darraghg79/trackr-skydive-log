@@ -385,6 +385,58 @@ Enable HaveIBeenPwned leaked-password protection in the Supabase dashboard:
 
 ---
 
+## Day Review / Quick Edit Decisions
+
+**Implemented: 2026-04-29 (F-DAY-REVIEW-FLOW)**
+
+Two-part feature: handcam visibility on the /jumps list, and a Quick Edit screen for end-of-day logbook upkeep.
+
+### Routing choice — separate route
+
+Quick Edit is implemented as **`src/app/(dashboard)/jumps/quick-edit/page.tsx`**, not as a mode toggled inside `/jumps`. Reason: Quick Edit has its own full-screen UX (back-button header, filter chips, sticky save bar), making it a distinct screen rather than a view mode. This is consistent with the existing `/jumps/new` and `/jumps/[id]` routing pattern.
+
+### API choice — bulk endpoint
+
+Save fires a single **`PATCH /api/jumps/bulk`** request with all dirty changes in one payload. This is consistent with the existing `/api/jumps/bulk-sign` precedent, returns per-jump success/failure for clean partial-failure reporting, and avoids N parallel round-trips for a typical 3–8 jump day.
+
+### Handcam indicator design
+
+A `Video` icon + "Handcam" text inside a `Badge variant="outline"` sits inline with the other badges (Signed, work jump type, Cutaway) on the jump card. Only rendered when `workJumpType === 'TANDEM' && hasHandcam === true`. This was chosen over a pill colour because it's consistent with the existing badge idiom in the card.
+
+### Search moved to global header
+
+The Search icon for the jumps list moved from the action row to **`Header.tsx`**. It appears only when `pathname === '/jumps'` (not on subroutes like `/jumps/new` or `/jumps/quick-edit`). Communication between the header icon and the page is via URL param `?showSearch=1`:
+- Header click → `router.replace('/jumps?showSearch=1')` (reads `window.location.search` in the click handler — no render-time `useSearchParams()` in the header)
+- Page syncs via a tiny `SearchParamSyncer` child component (uses `useSearchParams()`) wrapped in `<Suspense fallback={null}>` to satisfy Next.js App Router's requirement
+
+### Jump type dropdown
+
+Quick Edit's jump type dropdown is sourced from the user's personal `UserJumpType` table (same as JumpForm), NOT from the `WorkJumpType` enum. Changing jump type updates `jumpTypeId` only; `workJumpType` (AFF/TANDEM/etc.) is unchanged by Quick Edit.
+
+### Handcam toggle scope
+
+The handcam toggle in Quick Edit is shown **only when `workJumpType === 'TANDEM'`**. AFF, COACH, and CAMERA work jumps do not show the toggle. Fun jumps (non-work) also do not show it.
+
+### Dirty-state guard
+
+- **Browser close/refresh**: `beforeunload` handler blocks
+- **Cancel button**: checks `isDirty` and shows `AlertDialog` confirmation
+- **Browser in-app back button (SPA)**: handled via `history.pushState` sentinel + `popstate` listener. When the user is on the Quick Edit page with unsaved changes, a dummy history entry is pushed on each `isDirty` state change. If `popstate` fires, we re-push and show the discard dialog. Note: this pattern is a Next.js App Router workaround (there is no native `router.beforePopState` in App Router).
+
+### Partial save failure
+
+On partial save failure the user stays in Quick Edit, failed rows are highlighted with a red border and an "AlertCircle" message, and successfully saved rows are cleared from pending state. The user can retry individual rows or discard.
+
+Key files:
+- `src/app/api/jumps/bulk/route.ts` — new bulk PATCH endpoint
+- `src/app/(dashboard)/jumps/quick-edit/page.tsx` — Quick Edit page
+- `src/components/jumps/QuickEditRow.tsx` — editable row with name/jump-type/handcam controls
+- `src/components/jumps/QuickEditNameModal.tsx` — customer name edit modal
+- `src/components/layouts/Header.tsx` — search icon added (pathname-conditional)
+- `src/app/(dashboard)/jumps/page.tsx` — handcam badge + Quick Edit icon + URL-param search
+
+---
+
 ## PWA Auth Decisions
 
 **Implemented: 2026-04-29 (F-PWA-PERSISTENT-LOGIN / B16)**

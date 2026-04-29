@@ -11,6 +11,7 @@ import {
   BarChart3,
   Plane,
   FileText,
+  Search,
 } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
@@ -79,6 +80,26 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Search icon — only visible on the /jumps list page */}
+          {pathname === '/jumps' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Search jumps"
+              onClick={() => {
+                const sp = new URLSearchParams(window.location.search)
+                if (sp.get('showSearch') === '1') {
+                  sp.delete('showSearch')
+                } else {
+                  sp.set('showSearch', '1')
+                }
+                const qs = sp.toString()
+                router.replace(`/jumps${qs ? `?${qs}` : ''}`)
+              }}
+            >
+              <Search className="h-5 w-5" />
+            </Button>
+          )}
           <ThemeToggle />
 
           {/* Settings - Direct link to settings page */}

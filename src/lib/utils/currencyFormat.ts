@@ -56,23 +56,26 @@ export function formatCurrency(
   const currency = currencyCode?.toUpperCase() || 'USD'
   const config = currencyConfig[currency]
 
-  // Format the number with proper decimal places
-  const formattedNumber = numAmount.toFixed(decimals)
+  // Format the absolute value, then apply the sign outside the symbol
+  // (so negatives render as "-€25.00" / "-25.00 kr", not "€-25.00")
+  const isNegative = numAmount < 0
+  const formattedNumber = Math.abs(numAmount).toFixed(decimals)
+  const sign = isNegative ? '-' : ''
 
   if (!showSymbol) {
-    return formattedNumber
+    return `${sign}${formattedNumber}`
   }
 
   // If we have config, use the proper symbol and positioning
   if (config) {
     if (config.symbolAfter) {
-      return `${formattedNumber} ${config.symbol}`
+      return `${sign}${formattedNumber} ${config.symbol}`
     }
-    return `${config.symbol}${formattedNumber}`
+    return `${sign}${config.symbol}${formattedNumber}`
   }
 
   // Fallback: use the currency code itself
-  return `${formattedNumber} ${currency}`
+  return `${sign}${formattedNumber} ${currency}`
 }
 
 /**

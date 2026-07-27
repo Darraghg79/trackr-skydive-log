@@ -437,6 +437,45 @@ Key files:
 
 ---
 
+## Ad-hoc Invoice Lines Decisions
+
+**Implemented: 2026-07-27 (F-INVOICE-ADHOC-LINE)**
+
+Lets the user add free-text charge lines (talk-downs, kit hire, discounts, etc.) to an invoice that aren't tied to a jump.
+
+### Key constraint this design solves
+
+OPEN invoices store zero line items — `GET /api/invoices/[id]` regenerates `BASE_JUMP`/`HANDCAM_ADDON` rows from uninvoiced jumps on every request, and sending (OPEN→SENT) wipes and rebuilds all `InvoiceLineItem` rows for the invoice. Ad-hoc lines are real, persisted `InvoiceLineItem` rows from the moment they're created (even while OPEN) — they are never part of the dynamic regeneration — and the GET/send logic was changed to only touch jump-derived rows.
+
+### Schema
+
+- `InvoiceLineItemType` gained `ADHOC`.
+- `InvoiceLineItem.jumpId` and `workJumpType` are now nullable (`String?`, `WorkJumpType?`), and the `jump` relation is `Jump?`. Ad-hoc lines have `jumpId: null`.
+- New `description String? @db.Text` — the free-text label, only populated for `ADHOC` lines.
+- Migration: `20260727215811_add_adhoc_invoice_lines` (`ALTER COLUMN ... DROP NOT NULL` + `ADD COLUMN`, non-destructive, no backfill needed).
+- `unitPrice`/`lineTotal` allow negative values for ADHOC (discounts/credits) — the existing jump-line Zod schema (`min(0)`) is untouched; only the new `AdhocLineItemSchema` allows negatives.
+
+### API
+
+- `POST /api/invoices/[id]/line-items` — creates an `ADHOC` row. 409 if invoice is not OPEN.
+- `PATCH` / `DELETE /api/invoices/[id]/line-items/[lineItemId]` — edit/remove an ad-hoc line. Both require the invoice to be OPEN and the target row's `itemType === 'ADHOC'` (jump-derived rows are never editable through this route).
+- `GET /api/invoices/[id]` (OPEN branch) — after building the dynamic jump-derived lines, persisted `ADHOC` rows for the invoice are loaded separately and appended (`jump: null`), then included in the subtotal/tax/total math.
+- `PATCH /api/invoices/[id]` (OPEN→SENT branch) — the line-item wipe is now scoped: `deleteMany({ where: { invoiceId, itemType: { in: ['BASE_JUMP', 'HANDCAM_ADDON'] } } })`. The recalculated subtotal adds an aggregate sum of the surviving `ADHOC` rows. An invoice with only ad-hoc lines and zero jumps sends correctly (the jump-line array is just empty).
+
+### UI
+
+- `invoices/[id]/page.tsx` splits `invoice.lineItems` into jump-derived (`itemType !== 'ADHOC'`) and ad-hoc (`itemType === 'ADHOC'`) — rendered as two separate tables/cards ("Line Items" and "Additional Charges"). This sidesteps needing null-jump handling in the jump-derived table, since ad-hoc rows never appear there.
+- `AddInvoiceLineForm.tsx` (new) — shared dialog for both add and edit, used inline in the Additional Charges card. Live line-total preview, negative unit prices allowed. Add/edit/delete controls only render while `status === 'OPEN'`; SENT/PAID renders the ad-hoc table read-only.
+- `InvoicePDF.tsx` — the page-1 summary groups line items by a key that's per-row-unique for ADHOC (`adhoc-<id>`) so free-text lines never merge with each other or with jump totals; the display label is the line's `description`. Page 2 ("Jump Details") filters to `jump !== null` and is skipped entirely if there are no jump-derived lines (pure ad-hoc invoices).
+- `currencyFormat.ts` `formatCurrency()` was fixed to place the minus sign before the currency symbol (`-€25.00` not `€-25.00`) — previously untested since the app had no negative amounts before ad-hoc discounts.
+- The share page (`share/invoice/[token]/page.tsx`) needed no changes — it fetches `lineItems` (Prisma returns `jump: null` automatically for ad-hoc rows) and renders entirely through `InvoicePDF`, which already handles `jump === null`.
+
+### Deferred (not in v1)
+
+Reusable ad-hoc presets/catalogue, per-line taxable toggle, line reordering.
+
+---
+
 ## PWA Auth Decisions
 
 **Implemented: 2026-04-29 (F-PWA-PERSISTENT-LOGIN / B16)**

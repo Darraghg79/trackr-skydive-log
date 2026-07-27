@@ -17,12 +17,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/useToast"
-import { ArrowLeft, Download, Send, Loader2, Eye, Mail, RefreshCw } from "lucide-react"
+import { ArrowLeft, Download, Send, Loader2, Eye, Mail, RefreshCw, Plus, Pencil, Trash2 } from "lucide-react"
 import { format } from "date-fns"
 import { formatCurrency } from "@/lib/utils/currencyFormat"
 import { pdf } from "@react-pdf/renderer"
 import { InvoicePDF } from "@/components/pdf/InvoicePDF"
 import { isShareableUrlExpired } from "@/lib/utils/shareableUrl"
+import { AddInvoiceLineForm, AdhocLineFormValues } from "@/components/invoices/AddInvoiceLineForm"
 
 export default function InvoiceDetailPage() {
   const params = useParams()
@@ -32,6 +33,7 @@ export default function InvoiceDetailPage() {
   const [loading, setLoading] = useState(true)
   const [generatingPDF, setGeneratingPDF] = useState(false)
   const [showSentDialog, setShowSentDialog] = useState(false)
+  const [deletingLineId, setDeletingLineId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchInvoice()
@@ -212,6 +214,54 @@ ${invoice.user.phone ? `Phone: ${invoice.user.phone}` : ''}`
     }
   }
 
+  const handleAddLine = async (values: AdhocLineFormValues) => {
+    try {
+      const res = await fetch(`/api/invoices/${params.id}/line-items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      })
+      if (!res.ok) throw new Error("Failed to add line")
+      toast({ title: "Line added" })
+      await fetchInvoice()
+    } catch (error) {
+      toast({ title: "Failed to add line", variant: "destructive" })
+      throw error
+    }
+  }
+
+  const handleEditLine = async (lineItemId: string, values: AdhocLineFormValues) => {
+    try {
+      const res = await fetch(`/api/invoices/${params.id}/line-items/${lineItemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      })
+      if (!res.ok) throw new Error("Failed to update line")
+      toast({ title: "Line updated" })
+      await fetchInvoice()
+    } catch (error) {
+      toast({ title: "Failed to update line", variant: "destructive" })
+      throw error
+    }
+  }
+
+  const handleDeleteLine = async () => {
+    if (!deletingLineId) return
+    try {
+      const res = await fetch(`/api/invoices/${params.id}/line-items/${deletingLineId}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) throw new Error("Failed to delete line")
+      toast({ title: "Line removed" })
+      await fetchInvoice()
+    } catch (error) {
+      toast({ title: "Failed to remove line", variant: "destructive" })
+    } finally {
+      setDeletingLineId(null)
+    }
+  }
+
   const handleConfirmSent = async () => {
     try {
       await updateStatus("SENT")
@@ -269,6 +319,10 @@ ${invoice.user.phone ? `Phone: ${invoice.user.phone}` : ''}`
     SENT: "default",
     PAID: "success",
   }
+
+  const jumpLineItems = invoice.lineItems.filter((li: any) => li.itemType !== "ADHOC")
+  const adhocLineItems = invoice.lineItems.filter((li: any) => li.itemType === "ADHOC")
+  const isOpen = invoice.status === "OPEN"
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -465,7 +519,7 @@ ${invoice.user.phone ? `Phone: ${invoice.user.phone}` : ''}`
           <CardTitle>Line Items</CardTitle>
         </CardHeader>
         <CardContent>
-          {invoice.lineItems.length === 0 ? (
+          {jumpLineItems.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <p>No work jumps found for this dropzone.</p>
               {invoice.status === "OPEN" && (
@@ -485,7 +539,7 @@ ${invoice.user.phone ? `Phone: ${invoice.user.phone}` : ''}`
                   </tr>
                 </thead>
                 <tbody>
-                  {invoice.lineItems.map((item: any) => (
+                  {jumpLineItems.map((item: any) => (
                     <tr key={item.id} className="border-b">
                       <td className="py-2">
                         #{item.jump.jumpNumber} -{" "}
@@ -538,6 +592,112 @@ ${invoice.user.phone ? `Phone: ${invoice.user.phone}` : ''}`
           )}
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle>Additional Charges</CardTitle>
+          {isOpen && (
+            <AddInvoiceLineForm
+              currency={invoice.currency}
+              title="Add Charge"
+              trigger={
+                <Button size="sm" variant="outline">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add line
+                </Button>
+              }
+              onSubmit={handleAddLine}
+            />
+          )}
+        </CardHeader>
+        <CardContent>
+          {adhocLineItems.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground text-sm">
+              No additional charges on this invoice.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2">Description</th>
+                    <th className="text-right py-2">Qty</th>
+                    <th className="text-right py-2">Unit Price</th>
+                    <th className="text-right py-2">Total</th>
+                    {isOpen && <th className="text-right py-2 w-20">Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {adhocLineItems.map((item: any) => (
+                    <tr key={item.id} className="border-b">
+                      <td className="py-2">{item.description}</td>
+                      <td className="text-right py-2">{item.quantity}</td>
+                      <td
+                        className={`text-right py-2 ${
+                          Number(item.unitPrice) < 0 ? "text-red-600" : ""
+                        }`}
+                      >
+                        {formatCurrency(item.unitPrice, invoice.currency)}
+                      </td>
+                      <td
+                        className={`text-right py-2 ${
+                          Number(item.lineTotal) < 0 ? "text-red-600" : ""
+                        }`}
+                      >
+                        {formatCurrency(item.lineTotal, invoice.currency)}
+                      </td>
+                      {isOpen && (
+                        <td className="text-right py-2">
+                          <div className="flex justify-end gap-1">
+                            <AddInvoiceLineForm
+                              currency={invoice.currency}
+                              title="Edit Charge"
+                              initialValues={{
+                                description: item.description,
+                                quantity: item.quantity,
+                                unitPrice: Number(item.unitPrice),
+                              }}
+                              trigger={
+                                <Button size="icon" variant="ghost" className="h-7 w-7">
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                              }
+                              onSubmit={(values) => handleEditLine(item.id, values)}
+                            />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              onClick={() => setDeletingLineId(item.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={!!deletingLineId} onOpenChange={(open) => !open && setDeletingLineId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this charge?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This additional charge will be removed from the invoice and totals will be recalculated.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteLine}>Remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={showSentDialog} onOpenChange={setShowSentDialog}>
         <AlertDialogContent>

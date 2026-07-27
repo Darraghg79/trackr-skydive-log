@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
 
         if (existingBaseJumpInvoices.length > 0) {
           const conflicts = existingBaseJumpInvoices.map(
-            item => `Jump #${item.jump.jumpNumber} (Invoice #${item.invoice.invoiceNumber})`
+            item => `Jump #${item.jump!.jumpNumber} (Invoice #${item.invoice.invoiceNumber})`
           ).join(', ')
           throw new Error(`The following jumps have already been invoiced: ${conflicts}`)
         }
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
 
         if (existingHandcamInvoices.length > 0) {
           const conflicts = existingHandcamInvoices.map(
-            item => `Jump #${item.jump.jumpNumber} handcam (Invoice #${item.invoice.invoiceNumber})`
+            item => `Jump #${item.jump!.jumpNumber} handcam (Invoice #${item.invoice.invoiceNumber})`
           ).join(', ')
           throw new Error(`The following handcam services have already been invoiced: ${conflicts}`)
         }

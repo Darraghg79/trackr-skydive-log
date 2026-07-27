@@ -46,6 +46,7 @@ enum InvoiceStatus {
 enum InvoiceLineItemType {
   BASE_JUMP
   HANDCAM_ADDON
+  ADHOC
 }
 
 // ============================================
@@ -331,9 +332,10 @@ model Invoice {
 model InvoiceLineItem {
   id           String                @id @default(uuid())
   invoiceId    String
-  jumpId       String
+  jumpId       String?
   itemType     InvoiceLineItemType
-  workJumpType WorkJumpType
+  workJumpType WorkJumpType?
+  description  String?               @db.Text
   quantity     Int
   unitPrice    Decimal               @db.Decimal(10, 2)
   lineTotal    Decimal               @db.Decimal(10, 2)
@@ -341,7 +343,7 @@ model InvoiceLineItem {
 
   // Relations
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  jump    Jump    @relation(fields: [jumpId], references: [id], onDelete: Restrict)
+  jump    Jump?   @relation(fields: [jumpId], references: [id], onDelete: Restrict)
 
   @@index([invoiceId])
   @@index([jumpId])

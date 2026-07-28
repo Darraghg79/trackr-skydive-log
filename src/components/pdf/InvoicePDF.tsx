@@ -182,9 +182,10 @@ interface InvoiceData {
   }
   lineItems: Array<{
     id: string
-    jumpId?: string
-    workJumpType: string
+    jumpId?: string | null
+    workJumpType?: string | null
     itemType: string
+    description?: string | null
     quantity: number
     unitPrice: number
     lineTotal: number
@@ -194,7 +195,7 @@ interface InvoiceData {
       date: string
       customerName?: string
       hasHandcam?: boolean
-    }
+    } | null
   }>
   user: {
     name?: string
@@ -218,31 +219,39 @@ const formatCurrency = (amount: number, currency: string) => {
   }).format(amount)
 }
 
-// Group line items by work jump type for summary
+// Group line items by work jump type for summary. Ad-hoc lines are free-text
+// and keyed by their own id so they never merge with each other or with jump lines.
 const groupLineItemsByType = (lineItems: InvoiceData['lineItems']) => {
-  const grouped = new Map<string, { count: number; total: number; unitPrice: number }>()
+  const grouped = new Map<string, { label: string; count: number; total: number; unitPrice: number }>()
 
   lineItems.forEach(item => {
-    const key = item.itemType === 'HANDCAM_ADDON'
-      ? `${item.workJumpType} - Handcam`
-      : item.workJumpType
+    const isAdhoc = item.itemType === 'ADHOC'
+    const key = isAdhoc
+      ? `adhoc-${item.id}`
+      : item.itemType === 'HANDCAM_ADDON'
+        ? `${item.workJumpType} - Handcam`
+        : (item.workJumpType || 'Other')
+    const label = isAdhoc ? (item.description || 'Additional charge') : key
 
     if (!grouped.has(key)) {
-      grouped.set(key, { count: 0, total: 0, unitPrice: item.unitPrice })
+      grouped.set(key, { label, count: 0, total: 0, unitPrice: item.unitPrice })
     }
     const group = grouped.get(key)!
     group.count += item.quantity
     group.total += item.lineTotal
   })
 
-  return Array.from(grouped.entries()).map(([type, data]) => ({
-    type,
-    ...data
+  return Array.from(grouped.values()).map(({ label, ...data }) => ({
+    type: label,
+    ...data,
   }))
 }
 
 export const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice }) => {
   const groupedItems = groupLineItemsByType(invoice.lineItems)
+  // Page 2 breaks down individual jumps — ad-hoc lines have no jump behind them
+  // and are already represented in the page 1 summary table via their description.
+  const jumpDetailItems = invoice.lineItems.filter(item => item.jump !== null)
 
   return (
     <Document>
@@ -382,48 +391,51 @@ export const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice }) => {
         </View>
       </Page>
 
-      {/* Page 2: Jump Details */}
-      <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
-          <Text style={styles.companyName}>Jump Details</Text>
-          <Text style={styles.invoiceNumber}>Invoice #{invoice.invoiceNumber}</Text>
-        </View>
-
-        <View style={styles.table}>
-          <View style={styles.tableHeader}>
-            <Text style={[styles.col2, { width: '30%' }]}>Date</Text>
-            <Text style={[styles.col3, { width: '30%', textAlign: 'left' }]}>Work Type</Text>
-            <Text style={[styles.col4, { width: '40%', textAlign: 'left' }]}>Customer Name</Text>
+      {/* Page 2: Jump Details (only when the invoice has jump-derived lines) */}
+      {jumpDetailItems.length > 0 && (
+        <Page size="A4" style={styles.page}>
+          <View style={styles.header}>
+            <Text style={styles.companyName}>Jump Details</Text>
+            <Text style={styles.invoiceNumber}>Invoice #{invoice.invoiceNumber}</Text>
           </View>
 
-          {invoice.lineItems
-            .sort((a: any, b: any) => a.jump.jumpNumber - b.jump.jumpNumber)
-            .map((item: any) => {
-              // Display work jump type, appending " - Handcam" for handcam add-ons
-              const displayType = item.itemType === 'HANDCAM_ADDON'
-                ? `${item.workJumpType} - Handcam`
-                : item.workJumpType
+          <View style={styles.table}>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.col2, { width: '30%' }]}>Date</Text>
+              <Text style={[styles.col3, { width: '30%', textAlign: 'left' }]}>Work Type</Text>
+              <Text style={[styles.col4, { width: '40%', textAlign: 'left' }]}>Customer Name</Text>
+            </View>
 
-              return (
-                <View key={item.id} style={styles.tableRow}>
-                  <Text style={[styles.col2, { width: '30%' }]}>
-                    {format(new Date(item.jump.date), 'MMM d, yyyy')}
-                  </Text>
-                  <Text style={[styles.col3, { width: '30%', textAlign: 'left' }]}>
-                    {displayType}
-                  </Text>
-                  <Text style={[styles.col4, { width: '40%', textAlign: 'left' }]}>
-                    {item.jump.customerName || '-'}
-                  </Text>
-                </View>
-              )
-            })}
-        </View>
+            {jumpDetailItems
+              .slice()
+              .sort((a, b) => (a.jump!.jumpNumber - b.jump!.jumpNumber))
+              .map((item) => {
+                // Display work jump type, appending " - Handcam" for handcam add-ons
+                const displayType = item.itemType === 'HANDCAM_ADDON'
+                  ? `${item.workJumpType} - Handcam`
+                  : item.workJumpType
 
-        <View style={styles.footer}>
-          <Text>Page 2 of 2 - Jump Details</Text>
-        </View>
-      </Page>
+                return (
+                  <View key={item.id} style={styles.tableRow}>
+                    <Text style={[styles.col2, { width: '30%' }]}>
+                      {format(new Date(item.jump!.date), 'MMM d, yyyy')}
+                    </Text>
+                    <Text style={[styles.col3, { width: '30%', textAlign: 'left' }]}>
+                      {displayType}
+                    </Text>
+                    <Text style={[styles.col4, { width: '40%', textAlign: 'left' }]}>
+                      {item.jump!.customerName || '-'}
+                    </Text>
+                  </View>
+                )
+              })}
+          </View>
+
+          <View style={styles.footer}>
+            <Text>Page 2 of 2 - Jump Details</Text>
+          </View>
+        </Page>
+      )}
     </Document>
   )
 }

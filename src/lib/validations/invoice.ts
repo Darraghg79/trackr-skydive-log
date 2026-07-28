@@ -33,6 +33,13 @@ export const InvoiceUpdateSchema = z.object({
   pdfUrl: z.string().url().optional(),
 })
 
+export const AdhocLineItemSchema = z.object({
+  description: z.string().min(1).max(200),
+  quantity: z.number().int().min(1),
+  unitPrice: z.number(), // negatives allowed (discounts/credits)
+})
+
 export type InvoiceLineItemInput = z.infer<typeof InvoiceLineItemInputSchema>
 export type InvoiceCreateInput = z.infer<typeof InvoiceCreateSchema>
 export type InvoiceUpdateInput = z.infer<typeof InvoiceUpdateSchema>
+export type AdhocLineItemInput = z.infer<typeof AdhocLineItemSchema>

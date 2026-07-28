@@ -151,14 +151,36 @@ export async function GET(
         }
       }
 
+      // Load persisted ad-hoc lines (these are NOT regenerated from jumps — they
+      // survive the OPEN rebuild and the send-time wipe)
+      const adhocLines = await prisma.invoiceLineItem.findMany({
+        where: { invoiceId: item.id, itemType: 'ADHOC' },
+        orderBy: { createdAt: 'asc' },
+      })
+      const serializedAdhocLines = adhocLines.map(li => ({
+        id: li.id,
+        invoiceId: li.invoiceId,
+        jumpId: null,
+        itemType: li.itemType,
+        workJumpType: null,
+        description: li.description,
+        quantity: li.quantity,
+        unitPrice: Number(li.unitPrice),
+        lineTotal: Number(li.lineTotal),
+        createdAt: li.createdAt,
+        jump: null,
+      }))
+
+      const allLineItems = [...dynamicLineItems, ...serializedAdhocLines]
+
       // Recalculate totals
-      const subtotal = dynamicLineItems.reduce((sum, li) => sum + Number(li.lineTotal), 0)
+      const subtotal = allLineItems.reduce((sum, li) => sum + Number(li.lineTotal), 0)
       const taxAmount = (subtotal * Number(item.taxRate || 0)) / 100
       const total = subtotal + taxAmount
 
       return NextResponse.json({
         ...item,
-        lineItems: dynamicLineItems,
+        lineItems: allLineItems,
         subtotal,
         taxAmount,
         total,
@@ -226,9 +248,10 @@ export async function PATCH(
     // If status is changing from OPEN to SENT, create permanent snapshot of line items
     if (existing.status === 'OPEN' && validated.status === 'SENT') {
       const item = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        // Delete any existing line items (cleanup for OPEN invoices)
+        // Delete jump-derived line items only (cleanup for OPEN invoices) —
+        // ad-hoc lines are a permanent part of the invoice and must survive send
         await tx.invoiceLineItem.deleteMany({
-          where: { invoiceId: id },
+          where: { invoiceId: id, itemType: { in: ['BASE_JUMP', 'HANDCAM_ADDON'] } },
         })
 
         // Find all uninvoiced work jumps for this dropzone
@@ -304,8 +327,14 @@ export async function PATCH(
           })
         }
 
-        // Recalculate totals
-        const subtotal = lineItemsToCreate.reduce((sum, li) => sum + Number(li.lineTotal), 0)
+        // Recalculate totals — include surviving ad-hoc lines in the subtotal
+        const jumpLineItemsSubtotal = lineItemsToCreate.reduce((sum, li) => sum + Number(li.lineTotal), 0)
+        const adhocAgg = await tx.invoiceLineItem.aggregate({
+          where: { invoiceId: id, itemType: 'ADHOC' },
+          _sum: { lineTotal: true },
+        })
+        const adhocSubtotal = Number(adhocAgg._sum.lineTotal || 0)
+        const subtotal = jumpLineItemsSubtotal + adhocSubtotal
         const taxAmount = (subtotal * Number(existing.taxRate || 0)) / 100
         const total = subtotal + taxAmount
 
